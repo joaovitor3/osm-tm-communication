@@ -34,6 +34,6 @@ def add_api_endpoints(app):
     from server.api.projects.resources import ProjectApi
     api.add_resource(
         ProjectApi,
-        "/",
-        methods=["GET"],
+        "/document/",
+        methods=["GET", "POST"],
     )

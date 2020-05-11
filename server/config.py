@@ -18,6 +18,7 @@ class EnvironmentConfig:
     POSTGRES_ENDPOINT = os.getenv("POSTGRES_ENDPOINT", "postgresql")
     POSTGRES_DB = os.getenv("POSTGRES_DB", None)
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", None)
 
     SQLALCHEMY_DATABASE_URI = (
         f"postgresql://{POSTGRES_USER}"
