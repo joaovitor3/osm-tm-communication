@@ -1,7 +1,6 @@
 from flask_restful import Resource, request
 import requests
-from json2xml import json2xml
-from json2xml.utils import readfromstring
+import yaml
 import json
 import os
 import base64
@@ -25,10 +24,8 @@ class ProjectApi(Resource):
             "Authorization": "Bearer " + GITHUB_TOKEN
         }
         request_json = request.get_json()
-        document = json.dumps(request_json)
-        data = readfromstring(document)
-        document_xml = json2xml.Json2xml(data, wrapper="document", pretty=True).to_xml()
-        encoded_xml = base64.b64encode(bytes(document_xml, 'utf-8'))
+        document_yaml = yaml.dump(request_json, allow_unicode=True)
+        encoded_yaml = base64.b64encode(bytes(document_yaml, 'utf-8'))
         project_id = str(request_json["project"]["id"])
         request_data = {
             "message": "Add project " + project_id,
@@ -36,10 +33,10 @@ class ProjectApi(Resource):
                 "name": GITHUB_COMMITER_NAME,
                 "email": GITHUB_COMMITER_EMAIL
             },
-            "content": encoded_xml
+            "content": encoded_yaml
         }
         request_data["content"] = request_data["content"].decode("utf-8")
-        filename = "project" + project_id + ".xml"
+        filename = "project" + project_id + ".yaml"
         r = requests.put(
             GITHUB_API_ENDPOINT +
             f"repos/{GITHUB_REPOSITORY}/contents/github_files/{filename}",
