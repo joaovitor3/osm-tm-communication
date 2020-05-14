@@ -1,0 +1,8 @@
+from enum import Enum
+import os
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
+GITHUB_COMMITER_NAME = os.getenv("GITHUB_COMMITER_NAME")
+GITHUB_COMMITER_EMAIL = os.getenv("GITHUB_COMMITER_EMAIL")
+GITHUB_API_ENDPOINT = "https://api.github.com/"

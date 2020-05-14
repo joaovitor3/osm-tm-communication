@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+<document>
+	<project type="dict">
+		<id type="int">2</id>
+		<goal type="str">goal test</goal>
+		<timeframe type="str">20/02/2020</timeframe>
+		<externalSource type="str">external source test</externalSource>
+		<instructions type="str">instruction test</instructions>
+		<projectManager type="str">project manager test</projectManager>
+		<changesetComment type="int">1234</changesetComment>
+		<users type="list">
+			<item type="dict">
+				<osmId type="int">123</osmId>
+			</item>
+			<item type="dict">
+				<osmId type="int">321</osmId>
+			</item>
+		</users>
+	</project>
+	<organisation type="dict">
+		<id type="int">2</id>
+		<name type="str">org test</name>
+		<description type="str">org description test</description>
+	</organisation>
+</document>

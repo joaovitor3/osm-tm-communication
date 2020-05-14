@@ -5,21 +5,24 @@ from json2xml.utils import readfromstring
 import json
 import os
 import base64
+from server.constants import  (
+    GITHUB_API_ENDPOINT,
+    GITHUB_TOKEN,
+    GITHUB_REPOSITORY,
+    GITHUB_COMMITER_NAME,
+    GITHUB_COMMITER_EMAIL,
+    GITHUB_API_ENDPOINT,
+)    
 
-GITHUB_API_ENDPOINT = "https://api.github.com/"
 
 class ProjectApi(Resource):
     def get(self):
         return {"Success": "Hello"}, 200
 
     def post(self):
-        token = os.getenv("GITHUB_TOKEN")
-        github_repository = os.getenv("GITHUB_REPOSITORY")
-        github_commiter_name = os.getenv("GITHUB_COMMITER_NAME")
-        github_commiter_email = os.getenv("GITHUB_COMMITER_EMAIL")
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
+            "Authorization": "Bearer " + GITHUB_TOKEN
         }
         request_json = request.get_json()
         document = json.dumps(request_json)
@@ -30,8 +33,8 @@ class ProjectApi(Resource):
         request_data = {
             "message": "Add project " + project_id,
             "committer": {
-                "name": github_commiter_name,
-                "email": github_commiter_email
+                "name": GITHUB_COMMITER_NAME,
+                "email": GITHUB_COMMITER_EMAIL
             },
             "content": encoded_xml
         }
@@ -39,7 +42,7 @@ class ProjectApi(Resource):
         filename = "project" + project_id + ".xml"
         r = requests.put(
             GITHUB_API_ENDPOINT +
-            f"repos/{github_repository}/contents/github_files/{filename}",
+            f"repos/{GITHUB_REPOSITORY}/contents/github_files/{filename}",
             headers=headers,
             data=json.dumps(request_data)
         )
