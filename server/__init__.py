@@ -1,13 +1,12 @@
-import logging
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 from flask_restful import Api
-
-from server.config import EnvironmentConfig
+from flasgger import Swagger
 
 
 db = SQLAlchemy()
+
 
 def create_app():
     app = Flask(
@@ -15,19 +14,20 @@ def create_app():
     )
 
     # Load configuration options from environment
-    app.config.from_object(f"server.config.EnvironmentConfig")
+    app.config.from_object("server.config.EnvironmentConfig")
 
     # Connect to database
     db.init_app(app)
-    
+
     # Add paths to API endpoints
     add_api_endpoints(app)
 
+    Swagger(app)
 
     # Enables CORS on all API routes, meaning API is callable from anywhere
     CORS(app)
-
     return app
+
 
 def add_api_endpoints(app):
     api = Api(app)

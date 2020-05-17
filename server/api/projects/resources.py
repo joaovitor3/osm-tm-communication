@@ -2,16 +2,14 @@ from flask_restful import Resource, request
 import requests
 import yaml
 import json
-import os
 import base64
-from server.constants import  (
-    GITHUB_API_ENDPOINT,
+from server.constants import (
     GITHUB_TOKEN,
     GITHUB_REPOSITORY,
     GITHUB_COMMITER_NAME,
     GITHUB_COMMITER_EMAIL,
     GITHUB_API_ENDPOINT,
-)    
+)
 
 
 class ProjectApi(Resource):
@@ -37,7 +35,7 @@ class ProjectApi(Resource):
         }
         request_data["content"] = request_data["content"].decode("utf-8")
         filename = "project" + project_id + ".yaml"
-        r = requests.put(
+        requests.put(
             GITHUB_API_ENDPOINT +
             f"repos/{GITHUB_REPOSITORY}/contents/github_files/{filename}",
             headers=headers,

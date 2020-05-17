@@ -67,3 +67,8 @@ Repository for testing the storage of files in a github repository.
 	}
     }
     ```
+
+## Tests
+
+* For running tests execute the following command:
+    * `python -m unittest discover server/tests/`
