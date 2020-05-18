@@ -27,5 +27,7 @@ class EnvironmentConfig:
         + f"/{POSTGRES_DB}"
     )
 
+    SECRET_KEY = os.getenv("SECRET_KEY", "")
+
     # Some more definitions (not overridable)
     SQLALCHEMY_TRACK_MODIFICATIONS = False

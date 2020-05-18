@@ -12,7 +12,7 @@ ma = Marshmallow()
 migrate = Migrate()
 
 # Import all models so that they are registered with SQLAlchemy
-from server.models.postgres import document, user, task_manager  # noqa
+from server.models.postgres import document, task_manager   # noqa
 
 
 def create_app():
@@ -31,6 +31,7 @@ def create_app():
     # Add paths to API endpoints
     add_api_endpoints(app)
 
+    # Swagger configuration
     Swagger(app)
 
     # Enables CORS on all API routes, meaning API is callable from anywhere
@@ -40,9 +41,21 @@ def create_app():
 
 def add_api_endpoints(app):
     api = Api(app)
-    from server.api.projects.resources import ProjectApi
+    from server.api.documents.resources import DocumentApi
+    from server.api.task_managers.resources import TaskManagerApi
+    from server.api.authentication.resources import AuthenticationApi
     api.add_resource(
-        ProjectApi,
+        DocumentApi,
         "/document/",
         methods=["GET", "POST"],
+    )
+    api.add_resource(
+        TaskManagerApi,
+        "/task-manager/",
+        methods=["GET", "POST"],
+    )
+    api.add_resource(
+        AuthenticationApi,
+        "/gen-token/",
+        methods=["POST", "GET"],
     )

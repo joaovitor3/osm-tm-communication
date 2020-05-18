@@ -1,0 +1,16 @@
+organisation:
+  description: org description test
+  id: 2
+  name: org test
+project:
+  changesetComment: 1234
+  externalSource: external source test
+  goal: goal test
+  id: 12
+  instructions: instruction test
+  projectManager: project manager test
+  timeframe: 20/02/2020
+  users:
+  - osmId: 123
+  - osmId: 321
+taskManager: 1
