@@ -10,11 +10,14 @@ from server.constants import (
     GITHUB_COMMITER_EMAIL,
     GITHUB_API_ENDPOINT,
 )
+from server.models.postgres.document import Document
+from server.models.serializers.document import DocumentSchema
 
 
 class ProjectApi(Resource):
     def get(self):
-        return {"Success": "Hello"}, 200
+        result = Document.query.all()
+        return DocumentSchema().dump(result), 200
 
     def post(self):
         headers = {

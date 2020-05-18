@@ -68,6 +68,12 @@ Repository for testing the storage of files in a github repository.
     }
     ```
 
+## Migrations 
+* All migrations commands
+    * `python manage.py db init`
+    * `python manage.py db upgrade`
+    * `python manage.py db downgrade`
+
 ## Tests
 
 * For running tests execute the following command:

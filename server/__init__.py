@@ -3,9 +3,16 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 from flask_restful import Api
 from flasgger import Swagger
+from flask_marshmallow import Marshmallow
+from flask_migrate import Migrate
 
 
 db = SQLAlchemy()
+ma = Marshmallow()
+migrate = Migrate()
+
+# Import all models so that they are registered with SQLAlchemy
+from server.models.postgres import document, user, task_manager  # noqa
 
 
 def create_app():
@@ -16,8 +23,10 @@ def create_app():
     # Load configuration options from environment
     app.config.from_object("server.config.EnvironmentConfig")
 
-    # Connect to database
+    # Database configuration
     db.init_app(app)
+    ma.init_app(app)
+    migrate.init_app(app, db)
 
     # Add paths to API endpoints
     add_api_endpoints(app)

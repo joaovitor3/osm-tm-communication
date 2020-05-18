@@ -1,3 +1,4 @@
+alembic==1.4.2
 aniso8601==8.0.0
 attrs==19.3.0
 certifi==2020.4.5.1
@@ -8,6 +9,8 @@ flake8==3.8.1
 flasgger==0.9.4
 Flask==1.1.2
 Flask-Cors==3.0.8
+flask-marshmallow==0.12.0
+Flask-Migrate==2.5.3
 Flask-RESTful==0.3.8
 Flask-Script==2.0.6
 Flask-SQLAlchemy==2.4.1
@@ -17,14 +20,20 @@ itsdangerous==1.1.0
 Jinja2==2.11.2
 json2xml==3.3.2
 jsonschema==3.2.0
+Mako==1.1.2
 MarkupSafe==1.1.1
+marshmallow==3.6.0
+marshmallow-sqlalchemy==0.23.0
 mccabe==0.6.1
 mistune==0.8.4
 pkg-resources==0.0.0
+psycopg2==2.8.5
 pycodestyle==2.6.0
 pyflakes==2.2.0
 pyrsistent==0.16.0
+python-dateutil==2.8.1
 python-dotenv==0.13.0
+python-editor==1.0.4
 pytz==2020.1
 PyYAML==5.3.1
 requests==2.23.0

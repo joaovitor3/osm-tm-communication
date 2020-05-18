@@ -3,9 +3,7 @@ version: '3'
 services: 
     postgresql:
         container_name: postgresql
-        build:
-            context: .
-            dockerfile: ./docker/database.Dockerfile
+        image: postgres:alpine
         env_file: .env
         ports:
           - "5433:5432"
