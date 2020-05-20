@@ -1,21 +1,11 @@
 from flask_restful import Resource, request
-from flask import make_response
-import requests
-import yaml
-import json
-import base64
-from server.constants import (
-    GITHUB_TOKEN,
-    GITHUB_REPOSITORY,
-    GITHUB_COMMITER_NAME,
-    GITHUB_COMMITER_EMAIL,
-    GITHUB_API_ENDPOINT,
-)
+from flask import make_response, current_app
 from server.models.postgres.document import Document
-from server.models.postgres.task_manager import TaskManager
 from server.models.serializers.document import DocumentSchema
-from server import db
 from server.services.github_service import GithubService
+from server.models.postgres.utils import NotFound
+from server.services.authentication_service import token_auth
+from requests.exceptions import HTTPError
 
 
 class DocumentApi(Resource):
@@ -23,15 +13,37 @@ class DocumentApi(Resource):
         result = Document.query.all()
         return make_response(DocumentSchema(many=True).jsonify(result), 201)
 
+    @token_auth.login_required
     def post(self):
-        github_obj = GithubService()
-        tasking_manager_id = request.json["taskManager"]
-        response_content = github_obj.create_file(request.json)
-        
-        document_link = response_content["content"]["html_url"]
-        document_commit_hash = response_content["commit"]["sha"]
-        document = Document()
-        document.create_document(document_link, document_commit_hash, tasking_manager_id)
-        document.save()
+        try:
+            github_obj = GithubService()
+            task_manager_id = token_auth.current_user()
+            github_file = github_obj.create_or_update_github_file(
+                request.json,
+                task_manager_id
+            )
+            return {"Success": f"File created {github_file}"}, 200
+        except NotFound as e:
+            current_app.logger.error(
+                f"Error validating task manager: {str(e)}"
+            )
+            return {"Error": "Task Manager not found"}, 404
+        except HTTPError as e:
+            current_app.logger.error(f"Error validating document: {str(e)}")
+            return {"Error": f"{str(e)}"}, 409
 
-        return {"Message": "Success"}, 200
+    @token_auth.login_required
+    def put(self, project_id):
+        try:
+            github_obj = GithubService()
+            github_file = github_obj.create_or_update_github_file(
+                request.json,
+                project_id,
+                True
+            )
+            return {"Success": f"File updated {github_file}"}, 200
+        except NotFound as e:
+            current_app.logger.error(
+                f"Error validating task manager: {str(e)}"
+            )
+            return {"Error": "Task Manager not found"}, 404

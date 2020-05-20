@@ -1,5 +1,4 @@
 from server import db
-# from passlib.hash import pbkdf2_sha256
 
 
 class TaskManager(db.Model):
@@ -7,9 +6,7 @@ class TaskManager(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
-    token = db.Column(db.String(200))
     documents = db.relationship('Document', backref='taskmanager', lazy=True)
-
 
     @staticmethod
     def get(task_manager_id: int):

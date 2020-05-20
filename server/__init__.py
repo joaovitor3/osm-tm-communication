@@ -48,6 +48,13 @@ def add_api_endpoints(app):
         DocumentApi,
         "/document/",
         methods=["GET", "POST"],
+        endpoint="create_document"
+    )
+    api.add_resource(
+        DocumentApi,
+        "/document/<int:project_id>/",
+        methods=["PUT"],
+        endpoint="update_doc"
     )
     api.add_resource(
         TaskManagerApi,

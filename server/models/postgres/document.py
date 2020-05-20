@@ -1,6 +1,5 @@
 from server import db
 from server.models.utils import timestamp
-from server.models.postgres.task_manager import TaskManager
 
 
 class Document(db.Model):
@@ -37,10 +36,9 @@ class Document(db.Model):
         db.session.delete(self)
         db.session.commit()
 
-    def create_document(self, link, commit_hash, task_manager_id):
-        task_manager = TaskManager.get(task_manager_id)
-        self.task_manager_id = task_manager.id
-        self.link = link
-        self.commit_hash = commit_hash
-        self.task_manager_id = task_manager.id
-        self.create()
+    @staticmethod
+    def check_if_document_exists(document_id: int):
+        document = Document.get(document_id)
+        if document is not None:
+            return True
+        return False
