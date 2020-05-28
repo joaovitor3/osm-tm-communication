@@ -44,6 +44,7 @@ def add_api_endpoints(app):
     from server.api.documents.resources import DocumentApi
     from server.api.task_managers.resources import TaskManagerApi
     from server.api.authentication.resources import AuthenticationApi
+    from server.api.wiki_documents.resources import WikiDocumentApi
     api.add_resource(
         DocumentApi,
         "/document/",
@@ -62,7 +63,13 @@ def add_api_endpoints(app):
         methods=["GET", "POST"],
     )
     api.add_resource(
-        AuthenticationApi,
-        "/gen-token/",
-        methods=["POST", "GET"],
+        WikiDocumentApi,
+        "/wiki-document/",
+        methods=["POST"],
+    )
+    api.add_resource(
+        WikiDocumentApi,
+        "/wiki-document/<string:project_name>/",
+        methods=["PUT"],
+        endpoint="update_wiki_coord"
     )
