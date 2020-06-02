@@ -12,7 +12,11 @@ ma = Marshmallow()
 migrate = Migrate()
 
 # Import all models so that they are registered with SQLAlchemy
-from server.models.postgres import document, task_manager   # noqa
+from server.models.postgres import (
+    document,
+    task_manager,
+    organiser
+) # noqa
 
 
 def create_app():
@@ -44,6 +48,7 @@ def add_api_endpoints(app):
     from server.api.documents.resources import DocumentApi
     from server.api.task_managers.resources import TaskManagerApi
     from server.api.authentication.resources import AuthenticationApi
+    from server.api.organisers.resources import OrganiserApi
     from server.api.wiki_documents.resources import WikiDocumentApi
     api.add_resource(
         DocumentApi,
@@ -72,4 +77,9 @@ def add_api_endpoints(app):
         "/wiki-document/<string:project_name>/",
         methods=["PUT"],
         endpoint="update_wiki_coord"
+    )
+    api.add_resource(
+        OrganiserApi,
+        "/organiser/",
+        methods=["GET", "POST"],
     )

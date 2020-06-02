@@ -1,26 +1,26 @@
 from server import db
 
 
-class TaskManager(db.Model):
-    __tablename__ = "task_manager"
+class Organiser(db.Model):
+    __tablename__ = "organiser"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
-    organiser_id = db.Column(
-        db.Integer,
-        db.ForeignKey('organiser.id'),
-        nullable=False
+    link = db.Column(db.String(200))
+    task_managers = db.relationship(
+        "TaskManager",
+        backref="organiser",
+        lazy=True
     )
-    documents = db.relationship('Document', backref='taskmanager', lazy=True)
 
     @staticmethod
-    def get(task_manager_id: int):
+    def get(organiser_id: int):
         """
         Gets specified task manager
-        :param task_manager_id: task manager ID in scope
-        :return: TaskManager if found otherwise None
+        :param organiser_id: task manager ID in scope
+        :return: Organiser if found otherwise None
         """
-        return TaskManager.query.get(task_manager_id)
+        return Organiser.query.get(organiser_id)
 
     def create(self):
         """ Creates and saves the current model to the DB """

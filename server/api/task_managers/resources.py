@@ -1,4 +1,5 @@
 from flask_restful import Resource, request
+from server.models.postgres.organiser import Organiser
 from server.models.postgres.task_manager import TaskManager
 from server.models.serializers.task_manager import TaskManagerSchema
 from server import db
@@ -12,11 +13,17 @@ class TaskManagerApi(Resource):
 
     def post(self):
         tm_schema = TaskManagerSchema()
-        task_manager = TaskManager()
-        task_manager.name = request.json["name"]
-        db.session.add(task_manager)
-        db.session.commit()
-        return tm_schema.dump(task_manager), 201
+        organiser_id = request.json["organiser_id"]
+        organiser = Organiser.get(organiser_id)
+        if organiser is not None:
+            task_manager = TaskManager()
+            task_manager.name = request.json["name"]
+            task_manager.organiser_id = organiser.id
+            db.session.add(task_manager)
+            db.session.commit()
+            return tm_schema.dump(task_manager), 201
+        else:
+            return {"Error": "Organiser not found"}, 404
 
     def delete(self):
         """ Deletes the current model from the DB """

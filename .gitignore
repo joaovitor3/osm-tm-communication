@@ -130,3 +130,6 @@ dmypy.json
 
 # Env file
 .env
+
+# MediaWiki configuration
+LocalSettings.php
