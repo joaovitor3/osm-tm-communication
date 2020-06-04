@@ -1,22 +1,19 @@
 import base64
 import yaml
-import requests
-import wikitextparser as wtp
-from server.constants import (
-    WIKI_API_ENDPOINT,
-    PageTables,
-    ActivitiesTable,
-    HOT_OEG_ACTIVITIES_PAGE,
-    BOT_NAME,
-    BOT_PASSWORD,
-    COORDINATION_SECTION
-)
 import datetime
-import re
-from server.services.templates import (
-    PAGE_TEMPLATE,
-    PROJECT_PAGE_HEADER
+from server.services.wikitext_service import (
+    WikiTextService
 )
+from server.models.postgres.task_manager import TaskManager
+from server.services.templates import (
+    OverviewPage,
+    OrganisationActivitiesPage,
+    ActivityPage,
+    ProjectPage,
+    TaskingManagerDefaults
+)
+from server.models.postgres.organiser import Organiser
+from server.models.postgres.utils import NotFound
 
 
 class DocumentService:
@@ -32,172 +29,295 @@ class DocumentService:
         dict_from_yaml = yaml.load(decoded_yaml, Loader=yaml.FullLoader)
         return dict_from_yaml
 
+
 class WikiDocumentService:
-    def __init__(self):
-        self.endpoint = WIKI_API_ENDPOINT
-        self.session = requests.Session()
-        self.login()
+    def update_overview_page(self, task_manager_id):
+        wiki_obj = WikiTextService()
+        token = wiki_obj.get_token()
+        wiki_obj.check_token(token)
 
-    def get_page_text(self, page_title):
-        params = {
-            "action": "parse",
-            "page": page_title,
-            "prop": "wikitext",
-            "format": "json",
-        }
-        r = self.session.get(url=self.endpoint, params=params)
-        
-        data = r.json()
+        title = OverviewPage.PATH.value
+        page_text = wiki_obj.get_page_text(title)
+        task_manager = TaskManager.get(task_manager_id)
 
-        text = data["parse"]["wikitext"]["*"]
+        if task_manager:
+            organisation = self.build_organisation_data(task_manager)
+            organiser = self.build_organiser_data(task_manager)
 
-        return text
+            new_row = (
+                f"\n| {organisation}\n| {organiser}\n|-"
+            )
+        else:
+            raise NotFound(f"Task Manager id {task_manager_id} not found")
 
+        updated_page_text = wiki_obj.edit_page_with_table(
+            page_text,
+            OverviewPage.ACTIVITIES_LIST_SECTION_TITLE.value,
+            new_row
+        )
+        edited_page = wiki_obj.edit_page(token, title, updated_page_text)
+        return edited_page
 
-    def create_page(self, token, page_title, page_text):
-        params = {
-            "action": "edit",
-            "title": page_title,
-            "createonly": "true",
-            "contentmodel": "wikitext",
-            "bot": "true",
-            "format": "json"
-        }
-        
-        r = self.session.post(
-            url=self.endpoint, params=params, data={"token": token,"text": page_text}
+    def build_organisation_data(self, task_manager):
+        organisation_name = task_manager.name
+        organisation_data = (
+            f"[[{OverviewPage.PATH.value}/{organisation_name}"
+            f"|{organisation_name}]]"
+        )
+        if organisation_name == OverviewPage.HOT_ORGANISATION_NAME.value:
+            organisation_display = (
+                OverviewPage.HOT_ORGANISATION_DISPLAY.value
+            )
+            organisation_data = (
+                f"[[{OverviewPage.PATH.value}/{organisation_name}"
+                f"|{organisation_display}]]"
+            )
+        return organisation_data
+
+    def build_organiser_data(self, task_manager):
+        organiser_id = task_manager.organiser_id
+        organiser = Organiser.get(organiser_id)
+        if organiser:
+            organiser_name = organiser.name
+            organiser_link = organiser.link
+            organiser_data = (
+                f"[{organiser_link} {organiser_name}]"
+            )
+        else:
+            raise NotFound(f"Organiser id {organiser_id} not found")
+        return organiser_data
+
+    def update_orgs_activity_page(self, json_content, task_manager_id):
+        wiki_obj = WikiTextService()
+        token = wiki_obj.get_token()
+        wiki_obj.check_token(token)
+
+        title = json_content["organisation"]["name"]
+        hashtag = json_content["project"]["changesetComment"]
+        hashtag = hashtag.replace("#", "<nowiki>#</nowiki>")
+        hashtag_text = (
+            f"{hashtag}"
         )
 
-        data = r.json()
+        tools = OrganisationActivitiesPage.DEFAULT_TOOLS.value
 
-        return data
+        start_date = wiki_obj.format_date_text(datetime.datetime.now())
 
-    def edit_page(self, token, page_title, page_text):
-        params = {
-            "action": "edit",
-            "title": page_title,
-            "nocreate": "true",
-            "contentmodel": "wikitext",
-            "bot": "true",
-            "format": "json"
-        }
+        task_manager = TaskManager.get(task_manager_id)
+        if task_manager:
+            organisation_name = task_manager.name
+            page_path = f"{OverviewPage.PATH.value}/{organisation_name}"
+            page_text = wiki_obj.get_page_text(page_path)
+            new_row = (
+                f"\n| [[{title}]]\n| {hashtag_text}\n| "
+                f"{tools}\n| {start_date}\n|-"
+            )
+            updated_page_text = wiki_obj.edit_page_with_table(
+                page_text,
+                OrganisationActivitiesPage.CURRENT_ACTIVITIES.value,
+                new_row
+            )
+            edited_page = wiki_obj.edit_page(
+                token,
+                page_path,
+                updated_page_text
+            )
+            return edited_page
+        else:
+            raise NotFound(f"Task Manager id {task_manager_id} not found")
 
-        r = self.session.post(
-            url=self.endpoint, params=params, data={"token": token, "text": str(page_text)}
+    def create_activity_page(self, json_content, task_manager_id):
+        wiki_obj = WikiTextService()
+        token = wiki_obj.get_token()
+        wiki_obj.check_token(token)
+
+        task_manager = TaskManager.get(task_manager_id)
+        organisation_name = self.build_organisation_data(task_manager)
+        organiser_link = self.build_organiser_data(task_manager)
+
+        activity_name = json_content["organisation"]["name"]
+        project_title = json_content["project"]["title"]
+        project_name_column = (
+            f"[[{activity_name}/{project_title}|{project_title}]]"
+        )
+        project_manager = json_content["project"]["projectManager"]
+        project_status = (
+            ActivityPage.DEFAULT_ACTIVE_STATUS.value
         )
 
-        data = r.json()
-
-        return data
-
-    def check_token(self, token):
-        params = {"action": "checktoken", "type": "csrf", "format": "json"}
-        r = self.session.post(
-            url=self.endpoint, params=params, data={"token": token}
+        project_list_section = (
+            ActivityPage.PROJECT_LIST_SECTION.value
         )
-        data = r.json()
-        return data
+        projects_section = ActivityPage.PROJECTS_SECTION.value
 
-    def get_token(self):
-        params = {"action": "query", "meta": "tokens", "format": "json"}
-        r = self.session.get(url=self.endpoint, params=params)
-
-        data = r.json()
-
-        token = data["query"]["tokens"]["csrftoken"]
-        return token
-
-
-    def get_login_token(self):
-        params_token = {
-            "action": "query",
-            "format": "json",
-            "meta": "tokens",
-            "type": "login"
-        }
-        r = self.session.get(url=self.endpoint, params=params_token)
-        data = r.json()
-        login_token = data['query']['tokens']['logintoken']
-        return login_token
-
-    def login(self):
-        login_token = self.get_login_token()
-        params_login = {
-            'action':"login",
-            'lgname':BOT_NAME,
-            'format':"json"
-        }
-        r = self.session.post(
-            url=self.endpoint,
-            params=params_login,
-            data={
-                'lgpassword': BOT_PASSWORD,
-                'lgtoken': login_token
-            }
+        new_row = (
+            f"\n| {project_name_column}\n| {organiser_link}\n| "
+            f"{project_manager}\n| {project_status}\n|-"
         )
 
-    def add_project_table(self, text, json_content, token):
-        parsed = wtp.parse(text)
-        parsed_sections = parsed.sections
+        name_section = ActivityPage.ORG_NAME_SECTION.value
+        description_section = ActivityPage.ORG_DESCRIPTION_SECTION.value
+        link_section = ActivityPage.ORG_LINK_SECTION.value
 
-        activity_table = parsed_sections[PageTables.ACTIVITIES_TABLE.value].get_tables()[0]
-        updated_table = self.add_table_row(activity_table, json_content)
-        parsed.sections[PageTables.ACTIVITIES_TABLE.value].string = updated_table
+        activity_page_data = {
+            name_section: f"\n{organisation_name}\n",
+            description_section: "\nExample of description from "
+                                 "My Humanitarian mapping\n",
+            link_section: f"\n{organiser_link}\n",
+            project_list_section: new_row
+        }
+        updated_text = f"{ActivityPage.ORGANISATION_SECTION.value}\n"
 
-        edited = self.edit_page(token, HOT_OEG_ACTIVITIES_PAGE, parsed)
+        activity_page_template = ActivityPage.PAGE_TEMPLATE.value
+        page_initial_section = (
+            ActivityPage.ORGANISATION_SECTION.value
+        )
 
-    def add_table_row(self, table, json_content):
-        table_string = str(table)
-        disaster_project_header = f"'''{ActivitiesTable.DISASTER_PROJECTS.value}'''"
+        updated_text = wiki_obj.update_table_page_from_dict(
+            activity_page_template,
+            page_initial_section,
+            activity_page_data,
+            project_list_section,
+            projects_section
+        )
+        updated_page_text = wiki_obj.edit_page_with_table(
+            updated_text,
+            project_list_section,
+            new_row
+        )
+        # create page
+        wiki_obj.create_page(token, activity_name, updated_page_text)
 
-        title = json_content["title"]
-        contact = json_content["contact"]
+    def create_project_page(self, json_content):
+        wiki_obj = WikiTextService()
+        token = wiki_obj.get_token()
+        wiki_obj.check_token(token)
 
-        start_date = self.format_date_text(datetime.datetime.now())
-        end_datetime = datetime.datetime.strptime(
-            json_content["timestamp"],
+        users_list_section = ProjectPage.USERS_LIST_SECTION.value
+        team_user_section = ProjectPage.TEAM_AND_USER_SECTION.value
+
+        project_page_data = self.build_project_page_data(json_content)
+        new_row = project_page_data[users_list_section]
+
+        project_page_template = ProjectPage.PAGE_TEMPLATE.value
+        page_initial_section = (
+            ProjectPage.PROJECT_SECTION.value
+        )
+
+        updated_text = wiki_obj.update_table_page_from_dict(
+            project_page_template,
+            page_initial_section,
+            project_page_data,
+            users_list_section,
+            team_user_section
+        )
+
+        updated_page_text = wiki_obj.edit_page_with_table(
+            updated_text,
+            users_list_section,
+            new_row
+        )
+        activity_name = json_content["organisation"]["name"]
+        project_title = json_content["project"]["title"]
+        project_page_name = f"{activity_name}/{project_title}"
+        # create page
+        wiki_obj.create_page(token, project_page_name, updated_page_text)
+
+    def build_project_page_data(self, json_content):
+        wiki_obj = WikiTextService()
+
+        goal = json_content["project"]["goal"]
+        goal_text = (
+            f"\n{goal}\n"
+        )
+        start_date = wiki_obj.format_date_text(datetime.datetime.now())
+        end_date = datetime.datetime.strptime(
+            json_content["project"]["timeframe"],
             "%d/%m/%Y"
         )
-        end_date = "Estimate " + self.format_date_text(end_datetime)
-
-        purpose = json_content["purpose"]
-        details = json_content["title"].replace(" ", "_")
-        hashtag = json_content["changesetComment"]
-        tools = json_content["tools"]
-        training = json_content["training"]
-
-        new_project_row = (
-            f"\n|-\n|{title}||{contact}||{start_date}"
-            f"||{end_date}||{purpose}||[[{details}]]||"
-            f"{hashtag}||{tools}||{training}"
+        formatted_end_date = wiki_obj.format_date_text(end_date)
+        timeframe = (
+            f"\n* '''Start Date:''' {start_date}\n"
+            f"\n* '''End Date:''' Estimate {formatted_end_date}\n"
         )
-        index_end_header = re.search(disaster_project_header, table_string).span()[1]
-        updated_table = table_string[:index_end_header] + new_project_row + table_string[index_end_header:]
-        updated_section = (
-            "=== Current Activities ===\n</div>\n" + updated_table +
-            '\n<div style="clear:both; background:beige;box-shadow:3px 3px 2px red;padding:0.4em;">\n'
-        )
-        return updated_section
-    
-    def update_coordination(self, text, coordinator, page_title, token):
-        parsed = wtp.parse(text)
-        updated_coordinators = (
-            f"=== Coordination ===\n* {coordinator}\n"
-        )
-        parsed.sections[COORDINATION_SECTION].string = updated_coordinators
-        edited = self.edit_page(token, page_title, parsed)
 
-    def format_date_text(self, date):
-        date_month = date.strftime("%B")
-        date_day = date.strftime("%m")
-        date_year = date.strftime("%Y")
-
-        text_date = f"{date_day} {date_month} {date_year}"
-        return text_date    
-
-    def format_project_page(self, project_title):
-        project_description = (
-            f"'''{project_title}''' decription.\n__TOC__\n"
+        project_id = json_content["project"]["id"]
+        link = f"{TaskingManagerDefaults.WEBSITE.value}/projects"
+        project_link = (
+            f"\n{link}/{project_id}\n"
         )
-        complete_page = PROJECT_PAGE_HEADER + project_description + PAGE_TEMPLATE
-        return complete_page
+
+        tools = ProjectPage.STANDARD_TOOLS.value
+        tools_text = (
+            f"\n{tools}\n"
+        )
+
+        external_links = (
+            json_content["project"]["externalSource"]
+        )
+        external_links_text = (
+            f"\n{external_links}\n"
+        )
+
+        hashtag = (
+            json_content["project"]["changesetComment"]
+        )
+        hashtag = hashtag.replace("#", "<nowiki>#</nowiki>")
+        hashtag_text = (
+            f"\n{hashtag}\n"
+        )
+
+        instructions = (
+            f"\n* {TaskingManagerDefaults.INSTRUCTIONS.value}\n"
+            f"\n* {link}/{project_id}/tasks\n"
+        )
+
+        metrics = (
+            f"\n* {TaskingManagerDefaults.METRICS.value}\n"
+        )
+        quality_assurance = (
+            f"\n* {TaskingManagerDefaults.QUALITY_ASSURANCE.value}\n"
+        )
+
+        users = json_content["project"]["users"]
+        project_users = ""
+        for user in users:
+            osm_id = user["osmId"]
+            username = user["username"]
+            project_users += (
+                f"\n| {osm_id}\n| {username}\n|-"
+            )
+        # project_section = ProjectPage.PROJECT_SECTION.value
+        goal_section = ProjectPage.GOAL_SECTION.value
+        timeframe_section = ProjectPage.TIMEFRAME_SECTION.value
+        link_section = ProjectPage.LINK_SECTION.value
+        # tools_section = ProjectPage.TOOLS_SECTION.value
+        default_tools_section = ProjectPage.DEFAULT_TOOLS_SECTION.value
+        external_sources_section = ProjectPage.EXTERNAL_SOURCES_SECTION.value
+        # std_changeset_section = (
+        #     ProjectPage.STANDARD_CHANGESET_COMMENT_SECTION.value
+        # )
+        hashtag_section = (
+            ProjectPage.HASHTAG_SECTION.value
+        )
+        instructions_section = ProjectPage.INSTRUCTIONS_SECTION.value
+        metrics_section = ProjectPage.METRICS_SECTION.value
+        quality_assurance_section = (
+            ProjectPage.QUALITY_ASSURANCE_SECTION.value
+        )
+        # team_user_section = ProjectPage.TEAM_AND_USER_SECTION.value
+        users_list_section = ProjectPage.USERS_LIST_SECTION.value
+
+        project_page_data = {
+            goal_section: goal_text,
+            timeframe_section: timeframe,
+            link_section: project_link,
+            default_tools_section: tools_text,
+            external_sources_section: external_links_text,
+            hashtag_section: hashtag_text,
+            instructions_section: instructions,
+            metrics_section: metrics,
+            quality_assurance_section: quality_assurance,
+            users_list_section: project_users
+        }
+        return project_page_data

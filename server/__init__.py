@@ -12,10 +12,10 @@ ma = Marshmallow()
 migrate = Migrate()
 
 # Import all models so that they are registered with SQLAlchemy
-from server.models.postgres import (
-    document,
-    task_manager,
-    organiser
+from server.models.postgres import ( # noqa
+    document, # noqa
+    task_manager, # noqa
+    organiser # noqa
 ) # noqa
 
 
@@ -45,11 +45,13 @@ def create_app():
 
 def add_api_endpoints(app):
     api = Api(app)
+
     from server.api.documents.resources import DocumentApi
     from server.api.task_managers.resources import TaskManagerApi
     from server.api.authentication.resources import AuthenticationApi
     from server.api.organisers.resources import OrganiserApi
     from server.api.wiki_documents.resources import WikiDocumentApi
+
     api.add_resource(
         DocumentApi,
         "/document/",
@@ -82,4 +84,9 @@ def add_api_endpoints(app):
         OrganiserApi,
         "/organiser/",
         methods=["GET", "POST"],
+    )
+    api.add_resource(
+        AuthenticationApi,
+        "/gen-token/",
+        methods=["POST"]
     )

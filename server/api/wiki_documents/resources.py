@@ -1,32 +1,42 @@
 from flask_restful import Resource, request
+from flask import current_app
 from server.services.document_service import WikiDocumentService
-from server.constants import HOT_OEG_ACTIVITIES_PAGE
+from server.services.utils import (
+    InvalidMediaWikiToken,
+    PageNotFoundError,
+    ExistingPageError
+)
+from server.services.authentication_service import token_auth
 
 
 class WikiDocumentApi(Resource):
+    @token_auth.login_required
     def post(self):
-        wiki_obj = WikiDocumentService()
-        token = wiki_obj.get_token()
-        page_title = request.json["title"]
-        project_page_text = wiki_obj.format_project_page(page_title)
-        project_page = wiki_obj.create_page(
-            token, page_title,
-            project_page_text
-        )
-        
-        hot_oeg_activities_page_text = wiki_obj.get_page_text(HOT_OEG_ACTIVITIES_PAGE)
-        project_table_row = wiki_obj.add_project_table(
-            hot_oeg_activities_page_text,
-            request.json,
-            token
-        )
-        return {"Success": "msg"}, 201
-    
-    def put(self, project_name):
-        wiki_obj = WikiDocumentService()
-        token = wiki_obj.get_token()
-        project_page_text = wiki_obj.get_page_text(project_name)
-        coordinators = request.json["coordinators"]
-        wiki_obj.update_coordination(project_page_text, coordinators, project_name, token)
-        return {"Success": "msg"}, 201
-    
+        try:
+            wiki_document = WikiDocumentService()
+            task_manager_id = token_auth.current_user()
+
+            wiki_document.update_overview_page(
+                task_manager_id
+            )
+            wiki_document.update_orgs_activity_page(
+                request.json,
+                task_manager_id
+            )
+            wiki_document.create_activity_page(
+                request.json,
+                task_manager_id
+            )
+            wiki_document.create_project_page(request.json)
+            return {"msg": "success"}, 201
+        except InvalidMediaWikiToken as e:
+            current_app.logger.debug(
+                f"Error validating MediaWikiToken: {str(e)}"
+            )
+            return {"Error": str(e)}, 401
+        except PageNotFoundError as e:
+            current_app.logger.debug(f"Error editing page: {str(e)}")
+            return {"Error": str(e)}, 404
+        except ExistingPageError as e:
+            current_app.logger.debug(f"Error creating page: {str(e)}")
+            return {"Error": str(e)}, 409

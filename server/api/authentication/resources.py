@@ -12,6 +12,3 @@ class AuthenticationApi(Resource):
         )
         encoded_token = str(base64.b64encode(token.encode()), "utf-8")
         return {"message": encoded_token}, 201
-
-    def get(self):
-        return {"message": "success"}
