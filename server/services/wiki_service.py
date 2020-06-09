@@ -5,21 +5,37 @@ from server.constants import (
     BOT_PASSWORD
 )
 import re
+from flask import current_app
 import wikitextparser as wtp
-from server.services.utils import (
-    InvalidMediaWikiToken,
-    PageNotFoundError,
-    ExistingPageError
-)
+import datetime
 
 
-class WikiTextService:
+class WikiServiceError(Exception):
+    """
+    Custom Exception to notify callers an error occurred when handling wiki
+    """
+
+    def __init__(self, message):
+        if current_app:
+            current_app.logger.error(message)
+
+
+class WikiService:
     def __init__(self):
         self.endpoint = WIKI_API_ENDPOINT
         self.session = requests.Session()
         self.login()
 
-    def get_page_text(self, page_title):
+    def get_page_text(self, page_title: str) -> str:
+        """
+        Get the page content of a page parsed as Wikitext
+
+        Keyword arguments:
+        page_title -- The title of the page
+
+        Returns:
+        text -- The text of the page
+        """
         params = {
             "action": "parse",
             "page": page_title,
@@ -31,7 +47,22 @@ class WikiTextService:
         text = data["parse"]["wikitext"]["*"]
         return text
 
-    def create_page(self, token, page_title, page_text):
+    def create_page(self, token: str, page_title: str, page_text: str) -> dict:
+        """
+        Create a new wiki page
+
+        Keyword arguments:
+        token -- The MediaWiki API token
+        page_title -- The title of the page being created
+        page_text -- The text of the page being created
+
+        Raises:
+        WikiServiceError -- Exception raised when handling wiki
+
+        Returns:
+        data -- Dictionary with result of post request for creating
+                the page
+        """
         params = {
             "action": "edit",
             "title": page_title,
@@ -51,11 +82,26 @@ class WikiTextService:
         data = r.json()
         if ("error" in list(data.keys()) and
            data["error"]["code"] == "articleexists"):
-            raise ExistingPageError("The page you specified already exist")
+            raise WikiServiceError("The page you specified already exist")
         else:
             return data
 
-    def edit_page(self, token, page_title, page_text):
+    def edit_page(self, token: str, page_title: str, page_text: str) -> dict:
+        """
+        Edit a existing wiki page
+
+        Keyword arguments:
+        token -- The MediaWiki API token
+        page_title -- The title of the page being created
+        page_text -- The text of the page being created
+
+        Raises:
+        WikiServiceError -- Exception raised when handling wiki
+
+        Returns:
+        data -- Dictionary with result of post request for creating
+                the page
+        """
         params = {
             "action": "edit",
             "title": page_title,
@@ -75,29 +121,54 @@ class WikiTextService:
         data = r.json()
         if ("error" in list(data.keys()) and
            data["error"]["code"] == "missingtitle"):
-            raise PageNotFoundError("The page you specified doesn't exist")
+            raise WikiServiceError("The page you specified doesn't exist")
         else:
             return data
 
-    def check_token(self, token):
+    def check_token(self, token: str) -> dict:
+        """
+        Check if MediaWiki API Token is valid
+
+        Keyword arguments:
+        token -- The MediaWiki API token
+
+        Raises:
+        WikiServiceError -- Exception raised when handling wiki
+
+        Returns:
+        data -- Dictionary with result of post request for checking
+                the MediaWiki API Token
+        """
         params = {"action": "checktoken", "type": "csrf", "format": "json"}
         r = self.session.post(
             url=self.endpoint, params=params, data={"token": token}
         )
         data = r.json()
         if data["checktoken"]["result"] == "invalid":
-            raise InvalidMediaWikiToken("Invalid MediaWiki API Token")
+            raise WikiServiceError("Invalid MediaWiki API Token")
         else:
             return data
 
-    def get_token(self):
+    def get_token(self) -> str:
+        """
+        Get MediaWiki API Token for an active Session
+
+        Returns:
+        token -- MediaWiki API Token for an active Session
+        """
         params = {"action": "query", "meta": "tokens", "format": "json"}
         r = self.session.get(url=self.endpoint, params=params)
         data = r.json()
         token = data["query"]["tokens"]["csrftoken"]
         return token
 
-    def get_login_token(self):
+    def generate_login_token(self) -> str:
+        """
+        Generate Login Token for MediaWiki API
+
+        Returns:
+        token -- Login Token for MediaWiki API
+        """
         params_token = {
             "action": "query",
             "format": "json",
@@ -110,7 +181,10 @@ class WikiTextService:
         return login_token
 
     def login(self):
-        login_token = self.get_login_token()
+        """
+        Login into MediaWiki API
+        """
+        login_token = self.generate_login_token()
         params_login = {
             'action': "login",
             'lgname': BOT_NAME,
@@ -126,7 +200,17 @@ class WikiTextService:
         )
         r.raise_for_status()
 
-    def format_date_text(self, date):
+    def format_date_text(self, date: datetime) -> str:
+        """
+        Format a date into the format "%dd month_name %YYYY"
+
+        Keyword arguments:
+        date -- Date being formatted
+
+        Returns:
+        text_date -- Dictionary with result of post request for checking
+                the MediaWiki API Token
+        """
         date_month = date.strftime("%B")
         date_day = date.strftime("%m")
         date_year = date.strftime("%Y")
@@ -134,15 +218,28 @@ class WikiTextService:
         text_date = f"{date_day} {date_month} {date_year}"
         return text_date
 
-    def get_section_index(self, text, section_title):
+    def get_section_index(self, text: str, section_title: str) -> int:
+        """
+        Get the index of a section in a wiki page
+
+        Keyword arguments:
+        text -- The text of a wiki page
+        section_title -- the title of the section
+                         in which the index is searched
+
+        Raises:
+        WikiServiceError -- Exception raised when handling wiki
+
+        Returns:
+        index -- The index of the section
+        """
         parsed = wtp.parse(text)
         parsed_sections = parsed.sections
         for index, section in enumerate(parsed_sections):
             if (section.title is not None and
                section.title.strip() == section_title):
                 return index
-        # in case of index 0 comparison could be false
-        return False
+        raise WikiServiceError("The section you specified doesn't exist")
 
     def edit_page_with_table(self, text, table_section, new_row, row_number=0):
         parsed_text = wtp.parse(text)
@@ -249,3 +346,61 @@ class WikiTextService:
                 else:
                     updated_text += f"{table_parent}\n{section.string}"
         return updated_text
+
+    def hyperlink_external_link(self, text, link):
+        hyperlinked_text = f"[{link} {text}]"
+        return hyperlinked_text
+
+    def hyperlink_wiki_page(self, wiki_page, text):
+        hyperlinked_page = f"[[{wiki_page} | {text}]]"
+        return hyperlinked_page
+
+    def format_section_children_title(self, parent_section_level,
+                                      section_children_title):
+        section_children_level = parent_section_level + 1
+        section_delimiter = "="
+        section_children_text = (
+            " " + (section_delimiter * parent_section_level) + "\n" +
+            (section_delimiter * section_children_level) +
+            f" {section_children_title} " +
+            (section_delimiter * section_children_level)
+        )
+        return section_children_text
+
+    def add_children_section(self, text, section_children_title,
+                             section_parent_title):
+        try:
+            parsed_text = wtp.parse(text)
+            parsed_string = str(parsed_text)
+            section_title_string = (
+                re.search(
+                    f"(=)*({section_parent_title})(=)*",
+                    parsed_string
+                )
+            )
+
+            parent_section_index = (
+                self.get_section_index(text, section_parent_title)
+            )
+            parent_section_level = (
+                parsed_text.sections[parent_section_index].level
+            )
+
+            parent_section_new_index = (
+                section_title_string.span()[1] + parent_section_level + 1
+            )
+            end_text = parsed_string[parent_section_new_index:-1]
+
+            end_index = section_title_string.span()[1]
+
+            section_children_text = self.format_section_children_title(
+                parent_section_level,
+                section_children_title
+            )
+            parsed_string = (
+                parsed_string[0:end_index] + section_children_text
+                + end_text
+            )
+            return parsed_string
+        except WikiServiceError as e:
+            raise WikiServiceError(str(e))

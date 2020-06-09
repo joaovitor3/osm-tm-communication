@@ -10,37 +10,38 @@ class OverviewPage(Enum):
     PATH = "Organised_Editing/Activities"
     HOT_ORGANISATION_NAME = "Humanitarian OpenStreetMap Team"
     HOT_ORGANISATION_DISPLAY = "Humanitarian Mapping"
+    ORGANISATION_TABLE_HEADER = "organisation"
+    ORGANISER_TABLE_HEADER = "organiser"
 
 
-class OrganisationActivitiesPage(Enum):
-    DEFAULT_TOOLS = "Standard TM Projects"
-    CURRENT_ACTIVITIES = "Current Activities"
-
-
-class ActivityPage(Enum):
+class OrgActivityPage(Enum):
     PAGE_TEMPLATE = (
-        '= Organisation =\n'
-        '=== Name ===\n'
-        '=== Description ===\n'
-        '=== Link ===\n'
-        '= Projects =\n'
-        '=== Project list ===\n'
+        "= Activity =\n"
+        "== Organisation ==\n"
+        "=== Link ===\n"
+        "=== Description ===\n"
+        "== Organiser ==\n"
+        "=== Link ===\n"
+        "== Projects ==\n"
+        "=== Project list ===\n"
         "{|class='wikitable sortable'\n"
-        '|-\n'
+        "|-\n"
         '! scope="col" | Name\n'
         '! scope="col" | Organiser\n'
         '! scope="col" | Project Manager or Team\n'
         '! scope="col" | Status\n'
-        '|-\n'
-        '|}\n'
+        "|-\n"
+        "|}\n"
     )
-    ORGANISATION_SECTION = "= Organisation ="
-    DEFAULT_ACTIVE_STATUS = "Active"
-    ORG_NAME_SECTION = "Name"
-    ORG_DESCRIPTION_SECTION = "Description"
-    ORG_LINK_SECTION = "Link"
+    ORGANISATION_SECTION = "Organisation"
+    ORGANISER_SECTION = "Organiser"
+    ORGANISATION_LINK_SECTION = "Link"
+    ORGANISATION_DESCRIPTION_SECTION = "Description"
+    ORGANISER_LINK_SECTION = "Link"
     PROJECT_LIST_SECTION = "Project list"
-    PROJECTS_SECTION = "= Projects ="
+    PROJECT_SECTION = "== Projects =="
+    ACTIVITY_SECTION = "= Activity ="
+    DEFAULT_ACTIVE_STATUS = "Active"
 
 
 class ProjectPage(Enum):
