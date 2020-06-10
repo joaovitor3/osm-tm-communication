@@ -7,16 +7,9 @@ from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
 
 
-db = SQLAlchemy()
 ma = Marshmallow()
 migrate = Migrate()
 
-# Import all models so that they are registered with SQLAlchemy
-from server.models.postgres import ( # noqa
-    document, # noqa
-    task_manager, # noqa
-    organiser # noqa
-) # noqa
 
 
 def create_app():
@@ -28,9 +21,7 @@ def create_app():
     app.config.from_object("server.config.EnvironmentConfig")
 
     # Database configuration
-    db.init_app(app)
     ma.init_app(app)
-    migrate.init_app(app, db)
 
     # Add paths to API endpoints
     add_api_endpoints(app)
@@ -47,9 +38,6 @@ def add_api_endpoints(app):
     api = Api(app)
 
     from server.api.documents.resources import DocumentApi
-    from server.api.task_managers.resources import TaskManagerApi
-    from server.api.authentication.resources import AuthenticationApi
-    from server.api.organisers.resources import OrganiserApi
     from server.api.wiki_documents.resources import WikiDocumentApi
 
     api.add_resource(
@@ -65,11 +53,6 @@ def add_api_endpoints(app):
         endpoint="update_doc"
     )
     api.add_resource(
-        TaskManagerApi,
-        "/task-manager/",
-        methods=["GET", "POST"],
-    )
-    api.add_resource(
         WikiDocumentApi,
         "/wiki-document/",
         methods=["POST"],
@@ -79,14 +62,4 @@ def add_api_endpoints(app):
         "/wiki-document/<string:project_name>/",
         methods=["PUT"],
         endpoint="update_wiki_coord"
-    )
-    api.add_resource(
-        OrganiserApi,
-        "/organiser/",
-        methods=["GET", "POST"],
-    )
-    api.add_resource(
-        AuthenticationApi,
-        "/gen-token/",
-        methods=["POST"]
     )
