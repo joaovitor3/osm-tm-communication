@@ -8,10 +8,17 @@ from server.constants import (
 from server.services.document_service import DocumentService
 import requests
 import json
-from server.models.postgres.document import Document
-from server.models.postgres.task_manager import TaskManager
 from requests.exceptions import HTTPError
-from server.models.postgres.utils import NotFound
+from flask import current_app
+
+
+class GithubServiceError(Exception):
+    """
+    Custom Exception to notify callers an error occurred when handling wiki
+    """
+    def __init__(self, message):
+        if current_app:
+            current_app.logger.error(message)
 
 
 class GithubService:
@@ -21,26 +28,18 @@ class GithubService:
             "Authorization": "Bearer " + GITHUB_TOKEN
         }
 
-    def create_or_update_github_file(self, json_content: dict,
-                                     task_manager_id: int,
-                                     update_file=False):
-        project_id = json_content["project"]["id"]
-        task_manager = TaskManager.get(task_manager_id)
-        if task_manager is None:
-            raise NotFound(f"Task Manager id {task_manager_id} not found")
-        if Document.check_if_document_exists(project_id) and not update_file:
-            raise HTTPError(
-                f"Document for project {project_id} already exists in database"
-            )
-        elif not Document.check_if_document_exists(project_id) and update_file:
-            raise HTTPError(
-                f"Document for project {project_id} doesn't exists in database"
-            )
-
+    def create_or_update_github_file(self,
+                                     github_document_data: dict,
+                                     update_file=False,
+                                     github_project_id=None):
         try:
+            project_id = (
+                github_document_data["project"]["id"] if not update_file
+                else github_project_id
+            )
             request_data = self.build_github_request_data(
                 project_id,
-                json_content,
+                github_document_data,
                 update_file
             )
             filename = "project" + str(project_id) + ".yaml"
@@ -52,25 +51,14 @@ class GithubService:
             )
             response_content = response.json()
             response.raise_for_status()
-
-            if update_file:
-                document = Document.get(project_id)
-                document.commit_hash = response_content["content"]["sha"]
-                document.save()
-            else:
-                document = Document()
-                document.commit_hash = response_content["content"]["sha"]
-                document.link = response_content["content"]["html_url"]
-                document.task_manager_id = task_manager.id
-                document.create()
             return response_content["content"]["html_url"]
         except HTTPError:
-            raise HTTPError(
+            raise GithubServiceError(
                 f"Document for project {project_id} already exists in github"
             )
 
     def build_github_request_data(self, project_id: int,
-                                  json_content: dict,
+                                  github_document_data: dict,
                                   update_file=False):
         request_data = {
             "committer": {
@@ -79,19 +67,28 @@ class GithubService:
             }
         }
         if update_file:
-            yaml_dict = self.get_github_file_content(project_id)
-            for key, value in json_content.items():
-                yaml_dict[key] = value
-            encoded_yaml = DocumentService.json_to_bytes_encoded_yaml(
-                json_content
+            github_file_content = self.get_github_file_content(project_id)
+            yaml_dict = self.parse_encoded_yaml_to_dict(
+                github_file_content,
+                project_id
             )
-            document = Document.get(project_id)
+            for key in github_document_data.keys():
+                # always a nested dictionary
+                for nested_key, value in github_document_data[key].items():
+                    if isinstance(github_document_data[key], list):
+                        yaml_dict[key][nested_key] = list(value)
+                    else:
+                        yaml_dict[key][nested_key] = value
+
+            encoded_yaml = DocumentService.json_to_bytes_encoded_yaml(
+                yaml_dict
+            )
             request_data["message"] = "Update project " + str(project_id)
-            request_data["sha"] = document.commit_hash
+            request_data["sha"] = github_file_content["sha"]
         else:
             request_data["message"] = "Add project " + str(project_id)
             encoded_yaml = DocumentService.json_to_bytes_encoded_yaml(
-                json_content
+                github_document_data
             )
 
         request_data["content"] = encoded_yaml
@@ -106,6 +103,9 @@ class GithubService:
             headers=self.headers
         )
         response_content = response.json()
+        return response_content
+
+    def parse_encoded_yaml_to_dict(self, response_content, project_id):
         encoded_yaml = response_content["content"]
         yaml_dict = DocumentService.bytes_encoded_yaml_to_dict(encoded_yaml)
         return yaml_dict

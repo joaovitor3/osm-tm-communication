@@ -1,5 +1,4 @@
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 from flask_restful import Api
 from flasgger import Swagger
@@ -9,7 +8,6 @@ from flask_migrate import Migrate
 
 ma = Marshmallow()
 migrate = Migrate()
-
 
 
 def create_app():

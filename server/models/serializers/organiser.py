@@ -1,8 +1,11 @@
-from server.models.postgres.organiser import Organiser
 from server import ma
+from server.models.serializers.utils import (
+    CamelCaseSchema
+)
 
 
-class OrganiserSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Organiser
-        include_fk = True
+class OrganiserSchema(CamelCaseSchema):
+    name = ma.Str(required=True)
+    link = ma.Url(required=True)
+    metrics = ma.Str(required=True)
+    quality_assurance = ma.Str(required=True)
