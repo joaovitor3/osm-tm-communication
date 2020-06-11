@@ -1,10 +1,7 @@
 from flask_restful import Resource, request
-from server.services.document_service import (
-    WikiDocumentService
-)
-from server.services.wiki_service import (
-    WikiServiceError
-)
+
+from server.services.document_service import WikiDocumentService
+from server.services.wiki_service import WikiServiceError
 
 
 class WikiDocumentApi(Resource):

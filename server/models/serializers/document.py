@@ -1,18 +1,11 @@
+from marshmallow.exceptions import ValidationError
+
 from server import ma
 from server.models.serializers.statuses import DocumentContentType
-from marshmallow.exceptions import ValidationError
-from server.models.serializers.utils import (
-    CamelCaseSchema
-)
-from server.models.serializers.organisation import (
-    OrganisationSchema
-)
-from server.models.serializers.organiser import (
-    OrganiserSchema
-)
-from server.models.serializers.project import (
-    ProjectSchema
-)
+from server.models.serializers.utils import CamelCaseSchema
+from server.models.serializers.organisation import OrganisationSchema
+from server.models.serializers.organiser import OrganiserSchema
+from server.models.serializers.project import ProjectSchema
 
 
 def is_known_document_content_type(value):

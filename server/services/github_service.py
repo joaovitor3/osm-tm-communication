@@ -1,3 +1,8 @@
+import requests
+import json
+from requests.exceptions import HTTPError
+from flask import current_app
+
 from server.constants import (
     GITHUB_TOKEN,
     GITHUB_REPOSITORY,
@@ -6,10 +11,6 @@ from server.constants import (
     GITHUB_API_ENDPOINT,
 )
 from server.services.document_service import DocumentService
-import requests
-import json
-from requests.exceptions import HTTPError
-from flask import current_app
 
 
 class GithubServiceError(Exception):
@@ -28,75 +29,174 @@ class GithubService:
             "Authorization": "Bearer " + GITHUB_TOKEN
         }
 
-    def create_or_update_github_file(self,
-                                     github_document_data: dict,
-                                     update_file=False,
-                                     github_project_id=None):
+    def create_file(self, document: dict) -> str:
+        """
+        Create a new file in a github repository
+
+        Keyword arguments:
+        document -- The content of document being created
+
+        Raises:
+        GithubServiceError -- Exception raised when handling github service
+
+        Returns:
+        file_url -- String containing the github url of the file created
+        """
         try:
-            project_id = (
-                github_document_data["project"]["id"] if not update_file
-                else github_project_id
-            )
-            request_data = self.build_github_request_data(
+            project_id = document["project"]["id"]
+            request_data = self.generate_create_file_request_data(
                 project_id,
-                github_document_data,
-                update_file
+                document,
             )
-            filename = "project" + str(project_id) + ".yaml"
-            response = requests.put(
-                GITHUB_API_ENDPOINT +
-                f"repos/{GITHUB_REPOSITORY}/contents/github_files/{filename}",
-                headers=self.headers,
-                data=json.dumps(request_data)
-            )
-            response_content = response.json()
-            response.raise_for_status()
-            return response_content["content"]["html_url"]
+            file_url = self.commit_file(project_id, request_data)
+            return file_url
         except HTTPError:
             raise GithubServiceError(
                 f"Document for project {project_id} already exists in github"
             )
 
-    def build_github_request_data(self, project_id: int,
-                                  github_document_data: dict,
-                                  update_file=False):
+    def update_file(self, document: dict, project_id: int) -> str:
+        """
+        Update a file in a github repository
+
+        Keyword arguments:
+        document -- The content of document being created
+        project_id -- Id of the project document being updated
+
+        Raises:
+        GithubServiceError -- Exception raised when handling github service
+
+        Returns:
+        file_url -- String containing the github url of the file created
+        """
+        try:
+            request_data = self.generate_update_file_request_data(
+                project_id,
+                document,
+            )
+            file_url = self.commit_file(project_id, request_data)
+            return file_url
+        except HTTPError:
+            raise GithubServiceError(
+                f"Error updating document for project {project_id}"
+            )
+
+    def generate_create_file_request_data(self, project_id: int,
+                                          document: dict) -> dict:
+        """
+        Generate the request data for create a file in github
+
+        Keyword arguments:
+        project_id -- Id of the project document being created
+        document -- The content of document being created
+
+        Raises:
+        GithubServiceError -- Exception raised when handling github service
+
+        Returns:
+        request_data -- The request data for create a file in github
+        """
+        encoded_yaml_document = DocumentService.json_to_bytes_encoded_yaml(
+            document
+        )
+
         request_data = {
             "committer": {
                 "name": GITHUB_COMMITER_NAME,
                 "email": GITHUB_COMMITER_EMAIL
             }
         }
-        if update_file:
-            github_file_content = self.get_github_file_content(project_id)
-            yaml_dict = self.parse_encoded_yaml_to_dict(
-                github_file_content,
-                project_id
-            )
-            for key in github_document_data.keys():
-                # always a nested dictionary
-                for nested_key, value in github_document_data[key].items():
-                    if isinstance(github_document_data[key], list):
-                        yaml_dict[key][nested_key] = list(value)
-                    else:
-                        yaml_dict[key][nested_key] = value
-
-            encoded_yaml = DocumentService.json_to_bytes_encoded_yaml(
-                yaml_dict
-            )
-            request_data["message"] = "Update project " + str(project_id)
-            request_data["sha"] = github_file_content["sha"]
-        else:
-            request_data["message"] = "Add project " + str(project_id)
-            encoded_yaml = DocumentService.json_to_bytes_encoded_yaml(
-                github_document_data
-            )
-
-        request_data["content"] = encoded_yaml
-        request_data["content"] = request_data["content"].decode("utf-8")
+        request_data["message"] = "Add project " + str(project_id)
+        request_data["content"] = encoded_yaml_document.decode("utf-8")
         return request_data
 
-    def get_github_file_content(self, project_id):
-        filename = "project" + str(project_id) + ".yaml"
+    def generate_update_file_request_data(self, project_id: int,
+                                          document: dict) -> dict:
+        """
+        Generate the request data for update a file in github
+
+        Keyword arguments:
+        project_id -- Id of the project document being updated
+        document -- The content of document being updated
+
+        Raises:
+        GithubServiceError -- Exception raised when handling github service
+
+        Returns:
+        request_data -- The request data for update a file
+                        in a github repository
+        """
+        existing_yaml_file = self.get_file_content(project_id)
+        existing_encoded_yaml_file = existing_yaml_file["content"]
+        yaml_document_dict = DocumentService.bytes_encoded_yaml_to_dict(
+            existing_encoded_yaml_file
+        )
+        for key in document.keys():
+            # Always receive a nested dictionary from API request
+            for nested_key, value in document[key].items():
+                if isinstance(document[key], list):
+                    yaml_document_dict[key][nested_key] = list(value)
+                else:
+                    yaml_document_dict[key][nested_key] = value
+
+        encoded_yaml_document = DocumentService.json_to_bytes_encoded_yaml(
+            yaml_document_dict
+        )
+
+        request_data = {
+            "committer": {
+                "name": GITHUB_COMMITER_NAME,
+                "email": GITHUB_COMMITER_EMAIL
+            }
+        }
+        request_data["message"] = "Update project " + str(project_id)
+        request_data["sha"] = existing_yaml_file["sha"]
+        request_data["content"] = encoded_yaml_document.decode("utf-8")
+        return request_data
+
+    def commit_file(self, project_id: int, request_data: dict) -> str:
+        """
+        Commit a file to a github repository
+
+        Keyword arguments:
+        project_id -- Id of the project document
+        request_data -- The request data for update a file
+                        in a github repository
+
+        Raises:
+        GithubServiceError -- Exception raised when handling github service
+
+        Returns:
+        file_url -- String containing the github url of the file created
+        """
+        filename = "project_" + str(project_id) + ".yaml"
+        response = requests.put(
+            GITHUB_API_ENDPOINT +
+            f"repos/{GITHUB_REPOSITORY}/contents/github_files/{filename}",
+            headers=self.headers,
+            data=json.dumps(request_data)
+        )
+        response_content = response.json()
+        response.raise_for_status()
+
+        file_url = response_content["content"]["html_url"]
+        return file_url
+
+    def get_file_content(self, project_id):
+        """
+        Generate the request data for create a file in github
+
+        Keyword arguments:
+        project_id -- Id of the project document being updated
+
+        Raises:
+        GithubServiceError -- Exception raised when handling github service
+
+        Returns:
+        response_content -- The reponse content containing
+                            the github file information
+        """
+        filename = "project_" + str(project_id) + ".yaml"
         response = requests.get(
             GITHUB_API_ENDPOINT +
             f"repos/{GITHUB_REPOSITORY}/contents/github_files/{filename}",
@@ -104,8 +204,3 @@ class GithubService:
         )
         response_content = response.json()
         return response_content
-
-    def parse_encoded_yaml_to_dict(self, response_content, project_id):
-        encoded_yaml = response_content["content"]
-        yaml_dict = DocumentService.bytes_encoded_yaml_to_dict(encoded_yaml)
-        return yaml_dict

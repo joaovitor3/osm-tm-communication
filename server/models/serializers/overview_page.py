@@ -1,7 +1,5 @@
 from schematics import Model
-from schematics.types import (
-    StringType
-)
+from schematics.types import StringType
 
 
 class OverviewPageSerializer(Model):

@@ -1,7 +1,5 @@
 from server import ma
-from server.models.serializers.utils import (
-    CamelCaseSchema
-)
+from server.models.serializers.utils import CamelCaseSchema
 
 
 class UserSchema(CamelCaseSchema):

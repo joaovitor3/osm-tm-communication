@@ -1,30 +1,19 @@
 import base64
 import yaml
-from server.services.wiki_service import (
-    WikiService
+
+from server.services.wiki_service import WikiService
+from server.services.project_page_service import ProjectPageService
+from server.services.organisation_page_service import OrganisationPageService
+from server.services.overview_page_service import OverviewPageService
+from server.models.serializers.project_page import ProjectPageSerializer
+from server.models.serializers.organisation_page import (
+    OrganisationPageSerializer
 )
-from server.services.project_page_service import (
-    ProjectPageService
-)
-from server.services.organisation_page_service import (
-    OrganisationPageService
-)
-from server.services.overview_page_service import (
-    OverviewPageService
-)
+from server.models.serializers.overview_page import OverviewPageSerializer
 from server.services.templates import (
     OverviewPage,
     ProjectPage,
     OrgActivityPage
-)
-from server.models.serializers.project_page import (
-    ProjectPageSerializer
-)
-from server.models.serializers.organisation_page import (
-    OrganisationPageSerializer
-)
-from server.models.serializers.overview_page import (
-    OverviewPageSerializer
 )
 
 
