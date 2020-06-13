@@ -116,11 +116,26 @@ class DocumentApi(Resource):
                 description: Error validating request
         """
         try:
-            github = GithubService()
             document_schema = DocumentSchema()
             document = (
                 document_schema.load(request.json)
             )
+
+            project_information = {
+                "organiser": {
+                    "name": document["organiser"]["name"]
+                },
+                "organisation": {
+                    "name": document["organisation"]["name"]
+                },
+                "project": {
+                    "id": document["project"]["id"]
+                }
+            }
+            print("#"*30)
+            print(project_information)
+            print("#"*30)
+            github = GithubService(project_information)
             github_file = github.create_file(
                 document
             )
@@ -131,15 +146,25 @@ class DocumentApi(Resource):
         except ValidationError as e:
             return {"Error": f"{str(e)}"}, 400
 
-    def put(self, project_id):
+    def patch(self, organiser_name, organisation_name, project_id):
         """
-        Create a new file in a github repository
+        Update a existing file in a github repository
         ---
         tags:
             - documents
         produces:
             - application/json
         parameters:
+            - in: path
+              name: organiser_name
+              description: The Organiser name
+              required: true
+              type: string
+            - in: path
+              name: organisation_name
+              description: The Organisation name
+              required: true
+              type: string
             - in: path
               name: project_id
               description: The ID of the project
@@ -153,7 +178,7 @@ class DocumentApi(Resource):
             - in: body
               name: body
               required: true
-              description: JSON object for creating a document file in github
+              description: JSON object for updating a yaml file on github
               schema:
                 properties:
                     project:
@@ -183,10 +208,20 @@ class DocumentApi(Resource):
                 document_schema.load(request.json)
             )
 
-            github = GithubService()
+            project_information = {
+                "organiser": {
+                    "name": organiser_name
+                },
+                "organisation": {
+                    "name": organisation_name
+                },
+                "project": {
+                    "id": project_id
+                }
+            }
+            github = GithubService(project_information)
             github_file = github.update_file(
-                document,
-                project_id
+                document
             )
             return {"Success": f"File updated {github_file}"}, 200
         except ValidationError as e:
