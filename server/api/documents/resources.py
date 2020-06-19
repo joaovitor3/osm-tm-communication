@@ -132,9 +132,6 @@ class DocumentApi(Resource):
                     "id": document["project"]["id"]
                 }
             }
-            print("#"*30)
-            print(project_information)
-            print("#"*30)
             github = GithubService(project_information)
             github_file = github.create_file(
                 document
@@ -226,3 +223,5 @@ class DocumentApi(Resource):
             return {"Success": f"File updated {github_file}"}, 200
         except ValidationError as e:
             return {"Error": f"{str(e)}"}, 404
+        except GithubServiceError as e:
+            return {"Error": f"{str(e)}"}, 400
