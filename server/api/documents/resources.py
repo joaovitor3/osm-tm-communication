@@ -205,21 +205,21 @@ class DocumentApi(Resource):
                 document_schema.load(request.json)
             )
 
-            project_information = {
-                "organiser": {
-                    "name": organiser_name
-                },
-                "organisation": {
-                    "name": organisation_name
-                },
-                "project": {
-                    "id": project_id
-                }
-            }
-            github = GithubService(project_information)
-            github_file = github.update_file(
-                document
-            )
+            # project_information = {
+            #     "organiser": {
+            #         "name": organiser_name
+            #     },
+            #     "organisation": {
+            #         "name": organisation_name
+            #     },
+            #     "project": {
+            #         "id": project_id
+            #     }
+            # }
+            # github = GithubService(project_information)
+            # github_file = github.update_file(
+            #     document
+            # )
             return {"Success": f"File updated {github_file}"}, 200
         except ValidationError as e:
             return {"Error": f"{str(e)}"}, 404

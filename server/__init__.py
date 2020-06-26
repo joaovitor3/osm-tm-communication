@@ -39,7 +39,7 @@ def add_api_endpoints(app):
     api.add_resource(
         DocumentApi,
         "/document/",
-        methods=["GET", "POST"],
+        methods=["POST"],
         endpoint="create_document"
     )
     api.add_resource(

@@ -4,7 +4,7 @@ from server import ma
 from server.models.serializers.statuses import DocumentContentType
 from server.models.serializers.utils import CamelCaseSchema
 from server.models.serializers.organisation import OrganisationSchema
-from server.models.serializers.organiser import OrganiserSchema
+from server.models.serializers.organiser import PlatformSchema
 from server.models.serializers.project import ProjectSchema
 
 
@@ -35,7 +35,7 @@ def build_schema_dict():
     schema_dict = {
         project: ProjectSchema(),
         organisation: OrganisationSchema(),
-        organiser: OrganiserSchema()
+        organiser: PlatformSchema()
     }
     return schema_dict
 
@@ -54,4 +54,4 @@ def turn_fields_optional(url_parameters):
 class DocumentSchema(CamelCaseSchema):
     project = ma.Nested(ProjectSchema)
     organisation = ma.Nested(OrganisationSchema)
-    organiser = ma.Nested(OrganiserSchema)
+    platform = ma.Nested(PlatformSchema)
