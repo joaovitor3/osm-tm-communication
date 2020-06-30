@@ -92,7 +92,7 @@ class DocumentApi(Resource):
                             name:
                                 type: string
                                 example: Humanitarian OpenStreetMap Team
-                    organiser:
+                    platform:
                         type: object
                         properties:
                             name:
@@ -122,14 +122,14 @@ class DocumentApi(Resource):
             )
 
             project_information = {
-                "organiser": {
-                    "name": document["organiser"]["name"]
+                "platform": {
+                    "name": document["platform"]["name"]
                 },
                 "organisation": {
                     "name": document["organisation"]["name"]
                 },
                 "project": {
-                    "id": document["project"]["id"]
+                    "id": document["project"]["project_id"]
                 }
             }
             github = GithubService(project_information)
@@ -142,8 +142,11 @@ class DocumentApi(Resource):
             return {"Error": f"{str(e)}"}, 409
         except ValidationError as e:
             return {"Error": f"{str(e)}"}, 400
+        except Exception as e:
+            current_app.logger.debug(f"{str(e)}")
+            return {"Error": f"Unhandled error: {str(e)}"}, 404
 
-    def patch(self, organiser_name, organisation_name, project_id):
+    def patch(self, platform_name, organisation_name, project_id):
         """
         Update a existing file in a github repository
         ---
@@ -153,8 +156,8 @@ class DocumentApi(Resource):
             - application/json
         parameters:
             - in: path
-              name: organiser_name
-              description: The Organiser name
+              name: platform_name
+              description: The platform name
               required: true
               type: string
             - in: path
@@ -171,7 +174,7 @@ class DocumentApi(Resource):
               name: contentType
               type: string
               required: true
-              enum: [project, organisation, organiser]
+              enum: [project, organisation, platform]
             - in: body
               name: body
               required: true
@@ -198,28 +201,28 @@ class DocumentApi(Resource):
 
             optional_fields = turn_fields_optional(content_type)
             document_schema = DocumentSchema(
-                partial=optional_fields,
+                partial=True,
                 only=optional_fields
             )
             document = (
                 document_schema.load(request.json)
             )
 
-            # project_information = {
-            #     "organiser": {
-            #         "name": organiser_name
-            #     },
-            #     "organisation": {
-            #         "name": organisation_name
-            #     },
-            #     "project": {
-            #         "id": project_id
-            #     }
-            # }
-            # github = GithubService(project_information)
-            # github_file = github.update_file(
-            #     document
-            # )
+            project_information = {
+                "platform": {
+                    "name": platform_name
+                },
+                "organisation": {
+                    "name": organisation_name
+                },
+                "project": {
+                    "id": project_id
+                }
+            }
+            github = GithubService(project_information)
+            github_file = github.update_file(
+                document
+            )
             return {"Success": f"File updated {github_file}"}, 200
         except ValidationError as e:
             return {"Error": f"{str(e)}"}, 404

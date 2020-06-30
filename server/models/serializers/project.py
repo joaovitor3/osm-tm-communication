@@ -13,6 +13,7 @@ class ExternalSourceSchema(CamelCaseSchema):
     instructions = ma.Str(required=True)
     per_task_instructions = ma.Str(required=True)
 
+
 class ProjectSchema(CamelCaseSchema):
     project_id = ma.Int(required=True)
     status = ma.Str(required=True)
@@ -20,8 +21,8 @@ class ProjectSchema(CamelCaseSchema):
     short_description = ma.Str(required=True)
     changeset_comment = ma.Str(required=True)
     author = ma.Str(required=True)
-    # external_source = ma.Str(required=True)
-    url = ma.Url(required=True) # Update in Tasking Manager 
+    external_source = ma.Str(required=True)
+    url = ma.Url(required=True)
     # tools = ma.Str(required=True)
     created = ma.DateTime(required=True)
     # due_date = ma.Str(required=True)

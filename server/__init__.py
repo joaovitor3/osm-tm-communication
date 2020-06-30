@@ -44,7 +44,7 @@ def add_api_endpoints(app):
     )
     api.add_resource(
         DocumentApi,
-        "/document/<string:organiser_name>/"
+        "/document/<string:platform_name>/"
         "<string:organisation_name>/<int:project_id>/",
         methods=["PATCH"],
         endpoint="update_doc"

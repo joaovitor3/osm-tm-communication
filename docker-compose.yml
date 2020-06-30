@@ -1,12 +1,6 @@
 version: '3'
 
-services: 
-    postgresql:
-        container_name: postgresql
-        image: postgres:alpine
-        env_file: .env
-        ports:
-          - "5433:5432"
+services:
     mediawiki:
       image: mediawiki
       restart: always
