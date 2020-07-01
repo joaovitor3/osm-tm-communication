@@ -48,6 +48,30 @@ class WikiService:
         text = data["parse"]["wikitext"]["*"]
         return text
 
+    def is_existing_page(self, page_title: str) -> str:
+        """
+        Get the page content of a page parsed as Wikitext
+
+        Keyword arguments:
+        page_title -- The title of the page
+
+        Returns:
+        text -- The text of the page
+        """
+        params = {
+            "action": "parse",
+            "page": page_title,
+            "prop": "wikitext",
+            "format": "json",
+        }
+        r = self.session.get(url=self.endpoint, params=params)
+        data = r.json()
+        if ("error" in list(data.keys()) and
+           data["error"]["code"] == "missingtitle"):
+            return False
+        else:
+            return True
+
     def create_page(self, token: str, page_title: str, page_text: str) -> dict:
         """
         Create a new wiki page
@@ -259,7 +283,22 @@ class WikiService:
         )
         return parsed_text
 
-    def get_section_table(self, text, parsed_text, section_title):
+    def get_section_table(self, text: str, parsed_text: str,
+                          section_title) -> wtp.Table:
+        """
+        Get the first table of a section in a wiki page
+
+        Keyword arguments:
+        text -- The text of a wiki page
+        section_title -- the title of the section
+                         in which the index is searched
+
+        Raises:
+        WikiServiceError -- Exception raised when handling wiki
+
+        Returns:
+        index -- The index of the section
+        """
         section = self.get_section_index(
             text,
             section_title
@@ -272,8 +311,12 @@ class WikiService:
         return table
 
     def get_new_row_index(self, table, row_number=0):
-        table_column_numbers = self.get_table_column_numbers(table)
-        last_column_name = self.get_last_column_data(
+        """
+        Returns the position of the string where the new
+        table row will be added
+        """
+        table_column_numbers = self.get_table_column_numbers(table, row_number)
+        last_column_name = self.get_table_last_column_data(
             table,
             table_column_numbers,
             row_number
@@ -286,14 +329,31 @@ class WikiService:
         str_index_new_row = str_index_end_header + len(header_delimiter)
         return str_index_new_row
 
-    def get_last_column_data(self, table, table_column_numbers, row_number=0):
-        # because indexing starts at 0
-        last_column_header_index = table_column_numbers - 1
-        last_column_header_data = str(
-            table.cells(row=row_number, column=last_column_header_index)
+    def get_table_last_column_data(self, table: wtp.Table,
+                                   table_column_numbers: int,
+                                   row_number: int = 0) -> str:
+        """
+        Returns data from the last column of a table row
+
+        Keyword arguments:
+        table -- The table which the data is
+                 being searched
+        table_column_numbers -- The number of columns of
+                                the table
+        row_number -- The row number of the table which
+                      the data is being searched
+
+        Returns:
+        table_last_column_data -- Data from the last column
+                                  of a table row
+        """
+        # because indexing starts at 0 (moved to method to get col numbers)
+        # table_last_column_index = table_column_numbers - 1
+        table_last_column_data = str(
+            table.cells(row=row_number, column=table_column_numbers)
         )
-        last_column_name = last_column_header_data.partition("|")[-1]
-        return last_column_name
+        table_last_column_data = table_last_column_data.partition("|")[-1]
+        return table_last_column_data
 
     def update_table_page_source(self, parsed_text, new_row,
                                  table, str_index_new_row):
@@ -312,10 +372,27 @@ class WikiService:
         )
         return parsed_text
 
-    def get_table_column_numbers(self, table):
-        table_column_data = table.data(span=False)
-        table_header = table_column_data[0]
-        table_column_numbers = len(table_header)
+    def get_table_column_numbers(self, table: wtp.Table,
+                                 row_number: int = 0) -> int:
+        """
+        Returns the number of columns in a table
+
+        Keyword arguments:
+        table -- The table which the number of columns is
+                 being searched
+        row_number -- The row number of the table which
+                      the number of columns is being
+                      searched
+
+        Returns:
+        table_column_numbers -- The number of columns in the
+                                table
+        """
+        table_data = table.data(span=False)
+        table_row = table_data[row_number]
+
+        # because indexing starts at 0
+        table_column_numbers = len(table_row) - 1
         return table_column_numbers
 
     def update_table_page_from_dict(self, template_text,
@@ -348,11 +425,35 @@ class WikiService:
                     updated_text += f"{table_parent}\n{section.string}"
         return updated_text
 
-    def hyperlink_external_link(self, text, link):
+    def hyperlink_external_link(self, text: str, link: str) -> str:
+        """
+        Hyperlink an external page to a text
+
+        Keyword arguments:
+        text -- The text that will hyperlink to an external page
+        link -- The external link that is going to be present in
+                text
+
+        Returns:
+        hyperlinked_text -- The text with a hyperlink to an
+                            external page
+        """
         hyperlinked_text = f"[{link} {text}]"
         return hyperlinked_text
 
-    def hyperlink_wiki_page(self, wiki_page, text):
+    def hyperlink_wiki_page(self, wiki_page: str, text: str) -> str:
+        """
+        Hyperlink a wiki page to a text
+
+        Keyword arguments:
+        text -- The text that will hyperlink to a wiki page
+        link -- The wiki page link that is going
+                to be present in text
+
+        Returns:
+        hyperlinked_page -- The text with a hyperlink to a
+                            wiki page
+        """
         hyperlinked_page = f"[[{wiki_page} | {text}]]"
         return hyperlinked_page
 

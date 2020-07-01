@@ -1,22 +1,28 @@
 from flask_restful import Resource, request
-
-from server.services.document_service import WikiDocumentService
-from server.services.wiki_service import WikiServiceError
+from flask import current_app
+from server.services.overview_page_service import OverviewPageService
+from server.services.organisation_page_service import OrganisationPageService
+from server.services.project_page_service import ProjectPageService
+import time
 
 
 class WikiDocumentApi(Resource):
     def post(self):
         try:
-            wiki_document = WikiDocumentService()
+            start = time.time()
 
-            wiki_document.update_overview_page(request.json)
-            wiki_document.update_orgs_activity_page(
-                request.json
-            )
-            wiki_document.create_project_page(request.json)
+            overview_page = OverviewPageService()
+            overview_page.create_page(request.json)
+
+            organisation_page = OrganisationPageService()
+            organisation_page.create_page(request.json)
+
+            project_page = ProjectPageService()
+            project_page.create_page(request.json)
+
+            end = time.time()
+            current_app.logger.debug(f"TIME: {end - start}")
             return {"msg": "success"}, 201
-        except WikiServiceError as e:
-            return {"Error": str(e)}, 400
         except Exception:
             return {"Error": "Error processing request"}, 404
         # except InvalidMediaWikiToken as e:
