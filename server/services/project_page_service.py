@@ -16,13 +16,21 @@ class ProjectPageService(WikiPageService):
         self.timeframe_section = ProjectPage.TIMEFRAME_SECTION.value
         self.url_section = ProjectPage.URL_SECTION.value
         self.external_sources_section = (
-            ProjectPage.EXTERNAL_SOURCES_SECTION
-                       .value
+            ProjectPage.EXTERNAL_SOURCES_SECTION.value
+        )
+        self.instructions_section = ProjectPage.INSTRUCTIONS_SECTION.value
+        self.per_task_instructions_section = (
+            ProjectPage.PER_TASK_INSTRUCTIONS_SECTION.value
+        )
+        self.imagery_section = (
+            ProjectPage.IMAGERY_SECTION.value
+        )
+        self.license_section = (
+            ProjectPage.LICENSE_SECTION.value
         )
         self.hashtag_section = (
             ProjectPage.HASHTAG_SECTION.value
         )
-        self.instructions_section = ProjectPage.INSTRUCTIONS_SECTION.value
         self.metrics_section = ProjectPage.METRICS_SECTION.value
         self.quality_assurance_section = (
             ProjectPage.QUALITY_ASSURANCE_SECTION.value
@@ -45,7 +53,7 @@ class ProjectPageService(WikiPageService):
 
         Returns:
         project_page_data -- Dict containing only the required data
-                              for the project page
+                             for the project page
         """
         name = (
             document_data["project"]["name"]
@@ -67,6 +75,9 @@ class ProjectPageService(WikiPageService):
         )
         per_task_instructions = (
             document_data["project"]["externalSource"]["perTaskInstructions"]
+        )
+        imagery = (
+            document_data["project"]["externalSource"]["imagery"]
         )
         license = (
             document_data["project"]["externalSource"]["license"]
@@ -93,6 +104,7 @@ class ProjectPageService(WikiPageService):
                 "externalSource": {
                     "instructions": instructions,
                     "perTaskInstructions": per_task_instructions,
+                    "imagery": imagery,
                     "license": license
                 },
                 "url": url,
@@ -116,6 +128,7 @@ class ProjectPageService(WikiPageService):
             'project.created', 'project.changeset_comment',
             'project.external_source.instructions',
             'project.external_source.per_task_instructions',
+            'project.external_source.imagery',
             'project.external_source.license',
             'project.url', 'project.users'
         ]
@@ -138,9 +151,8 @@ class ProjectPageService(WikiPageService):
         wiki_obj = WikiService()
 
         short_description = (
-            f"\n{project_page_data['project']['short_description']}\n"
+            f"\n{project_page_data['project']['shortDescription']}\n"
         )
-
         created_date = wiki_obj.format_date_text(
             project_page_data['project']['created']
         )
@@ -156,15 +168,11 @@ class ProjectPageService(WikiPageService):
             f"\n{project_page_data['project']['url']}\n"
         )
 
-        external_source = (
-            f"\n{project_page_data['project']['external_source']}\n"
-        )
-
         hashtag = (
-            project_page_data['project']['changeset_comment']
+            project_page_data['project']['changesetComment']
         )
         hashtag = (
-            project_page_data['project']['changeset_comment'].replace(
+            project_page_data['project']['changesetComment'].replace(
                 "#", "<nowiki>#</nowiki>"
             )
         )
@@ -174,11 +182,38 @@ class ProjectPageService(WikiPageService):
 
         instructions_text = (
             project_page_data['project']
-                             ['external_source']
+                             ['externalSource']
                              ['instructions']
         )
         instructions = (
             f"\n{instructions_text}\n"
+        )
+
+        per_task_instructions_text = (
+            project_page_data['project']
+                             ['externalSource']
+                             ['perTaskInstructions']
+        )
+        per_task_instructions = (
+            f"\n{per_task_instructions_text}\n"
+        )
+
+        imagery_text = (
+            project_page_data['project']
+                             ['externalSource']
+                             ['imagery']
+        )
+        imagery = (
+            f"\n{imagery_text}\n"
+        )
+
+        license_text = (
+            project_page_data['project']
+                             ['externalSource']
+                             ['license']
+        )
+        license = (
+            f"\n{license_text}\n"
         )
 
         # metrics = (
@@ -192,19 +227,26 @@ class ProjectPageService(WikiPageService):
         project_users = ""
         for user in users:
             project_users += (
-                f"\n| {user['user_id']}\n| {user['user_name']}\n|-"
+                f"\n| {user['userId']}\n| {user['userName']}\n|-"
             )
 
         project_page_sections = {
             self.short_description_section: short_description,
             self.timeframe_section: timeframe,
             self.url_section: project_url,
-            self.external_sources_section: external_source,
+            self.external_sources_section: {
+                self.instructions_section: instructions,
+                self.per_task_instructions_section: per_task_instructions,
+                self.imagery_section: imagery,
+                self.license_section: license
+            },
             self.hashtag_section: hashtag_text,
-            self.instructions_section: instructions,
+            # self.instructions_section: instructions,
             # self.metrics_section: metrics,
             # self.quality_assurance_section: quality_assurance,
-            self.users_list_section: project_users
+            self.team_user_section: {
+                self.users_list_section: project_users
+            }
         }
         return project_page_sections
 
@@ -220,24 +262,28 @@ class ProjectPageService(WikiPageService):
         token = wiki_obj.get_token()
         wiki_obj.check_token(token)
 
-        project_wikitext_data = self.document_to_page_sections(
+        project_wikitext_data = self.generate_page_sections_dict(
             document_data
         )
-        new_row = project_wikitext_data[self.users_list_section]
 
-        updated_text = wiki_obj.update_table_page_from_dict(
+        updated_text = wiki_obj.generate_page_text_from_dict(
             self.project_page_template,
-            self.page_initial_section,
+            f"= {self.page_initial_section} =",
             project_wikitext_data,
-            self.users_list_section,
-            self.team_user_section
+            self.users_list_section
         )
 
-        updated_page_text = wiki_obj.edit_page_with_table(
-            updated_text,
-            self.users_list_section,
-            new_row
-        )
         project_page_name = f"{document_data['project']['name']}"
 
-        wiki_obj.create_page(token, project_page_name, updated_page_text)
+        if wiki_obj.is_existing_page(project_page_name):
+            wiki_obj.edit_page(
+                token,
+                project_page_name,
+                updated_text
+            )
+        else:
+            wiki_obj.create_page(
+                token,
+                project_page_name,
+                updated_text
+            )

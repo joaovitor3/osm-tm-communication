@@ -12,15 +12,16 @@ from server.services.wiki_page_service import WikiPageService
 
 class OrganisationPageService(WikiPageService):
     def __init__(self):
+        self.organisation_section = (
+            OrgActivityPage.ORGANISATION_SECTION.value
+        )
         self.organisation_url_section = (
-            # OrgActivityPage.ORGANISATION_url_SECTION.value
             OrgActivityPage.ORGANISATION_SECTION.value
         )
         self.organisation_description_section = (
             OrgActivityPage.ORGANISATION_DESCRIPTION_SECTION.value
         )
         self.platform_url_section = (
-            # OrgActivityPage.platform_url_SECTION.value
             OrgActivityPage.PLATFORM_SECTION.value
         )
         self.projects_list_section = (
@@ -29,7 +30,7 @@ class OrganisationPageService(WikiPageService):
         self.page_initial_section = (
             OrgActivityPage.ACTIVITY_SECTION.value
         )
-        self.projects_list_secton = (
+        self.projects_list_section = (
             OrgActivityPage.PROJECT_LIST_SECTION.value
         )
         self.projects_section = (
@@ -47,7 +48,7 @@ class OrganisationPageService(WikiPageService):
         self.platform_link_section = (
             f"{OrgActivityPage.PLATFORM_LINK_SECTION.value}"
         )
-        self.platform_parent_section = (
+        self.platform_section = (
             f"{OrgActivityPage.PLATFORM_SECTION.value}"
         )
 
@@ -151,12 +152,16 @@ class OrganisationPageService(WikiPageService):
         )
 
         organisation_page_sections = {
-            self.organisation_url_section: organisation_url_text,
-            self.organisation_description_section: (
-                organisation_description
-            ),
-            self.platform_url_section: platform_url_text,
-            self.projects_list_section: new_row
+            self.organisation_section: {
+                self.organisation_link_section: organisation_url_text,
+                self.organisation_description_section: organisation_description
+            },
+            self.platform_section: {
+                self.platform_link_section: platform_url_text,
+            },
+            self.projects_section: {
+                self.projects_list_section: new_row
+            }
         }
         return organisation_page_sections
 
@@ -214,43 +219,26 @@ class OrganisationPageService(WikiPageService):
         organisation_name = document_data["organisation"]["name"]
         page_path = f"{OverviewPage.PATH.value}/{organisation_name}"
 
-        updated_text = wiki_obj.update_table_page_from_dict(
-            self.project_page_template,
+        if wiki_obj.is_existing_page(page_path):
+            page_text = wiki_obj.get_page_text(page_path)
+        else:
+            page_text = self.project_page_template
+
+        updated_text = wiki_obj.generate_page_text_from_dict(
+            page_text,
             self.page_initial_section,
             organisation_wikitext_data,
-            self.projects_list_secton,
-            self.projects_section
+            self.projects_list_section
         )
-
-        new_row = organisation_wikitext_data[self.projects_list_secton]
-
-        updated_page_text = wiki_obj.edit_page_with_table(
-            updated_text,
-            self.projects_list_secton,
-            new_row
-        )
-
-        organisation_section_text = wiki_obj.add_children_section(
-            str(updated_page_text),
-            self.organisation_link_section,
-            self.organisation_parent_section
-        )
-
-        platform_section_text = wiki_obj.add_children_section(
-            str(organisation_section_text),
-            self.platform_link_section,
-            self.platform_parent_section
-        )
-
         if wiki_obj.is_existing_page(page_path):
             wiki_obj.edit_page(
                 token,
                 page_path,
-                platform_section_text
+                updated_text
             )
         else:
             wiki_obj.create_page(
                 token,
                 page_path,
-                platform_section_text
+                updated_text
             )

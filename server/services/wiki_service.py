@@ -2,7 +2,7 @@ import requests
 import re
 from flask import current_app
 import wikitextparser as wtp
-import datetime
+from datetime import datetime
 
 from server.constants import (
     WIKI_API_ENDPOINT,
@@ -225,7 +225,7 @@ class WikiService:
         )
         r.raise_for_status()
 
-    def format_date_text(self, date: datetime) -> str:
+    def format_date_text(self, str_date: str) -> str:
         """
         Format a date into the format "%dd month_name %YYYY"
 
@@ -236,9 +236,13 @@ class WikiService:
         text_date -- Dictionary with result of post request for checking
                 the MediaWiki API Token
         """
-        date_month = date.strftime("%B")
-        date_day = date.strftime("%m")
-        date_year = date.strftime("%Y")
+        parsed_date = datetime.strptime(
+            str_date,
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        date_month = parsed_date.strftime("%B")
+        date_day = parsed_date.strftime("%m")
+        date_year = parsed_date.strftime("%Y")
 
         text_date = f"{date_day} {date_month} {date_year}"
         return text_date
@@ -262,29 +266,11 @@ class WikiService:
         parsed_sections = parsed.sections
         for index, section in enumerate(parsed_sections):
             if (section.title is not None and
-               section.title.strip() == section_title):
+               section.title == section_title):
                 return index
         raise WikiServiceError("The section you specified doesn't exist")
 
-    def edit_page_with_table(self, text, table_section, new_row, row_number=0):
-        parsed_text = wtp.parse(text)
-        table = self.get_section_table(
-            text,
-            parsed_text,
-            table_section
-        )
-        str_index_new_row = self.get_new_row_index(table, row_number)
-
-        parsed_text = self.update_table_page_source(
-            parsed_text,
-            new_row,
-            table,
-            str_index_new_row
-        )
-        return parsed_text
-
-    def get_section_table(self, text: str, parsed_text: str,
-                          section_title) -> wtp.Table:
+    def get_section_table(self, text: str, section_title: str) -> wtp.Table:
         """
         Get the first table of a section in a wiki page
 
@@ -299,6 +285,7 @@ class WikiService:
         Returns:
         index -- The index of the section
         """
+        parsed_text = wtp.parse(text)
         section = self.get_section_index(
             text,
             section_title
@@ -347,30 +334,38 @@ class WikiService:
         table_last_column_data -- Data from the last column
                                   of a table row
         """
-        # because indexing starts at 0 (moved to method to get col numbers)
-        # table_last_column_index = table_column_numbers - 1
         table_last_column_data = str(
             table.cells(row=row_number, column=table_column_numbers)
         )
         table_last_column_data = table_last_column_data.partition("|")[-1]
         return table_last_column_data
 
-    def update_table_page_source(self, parsed_text, new_row,
-                                 table, str_index_new_row):
-        parsed_string = str(parsed_text)
+    def add_table_row(self, page_text: str, new_row: str,
+                      table_section_title: str,
+                      table_template: str) -> str:
+        """
+        Add a row to table
+        """
+        page_text += f"{table_template}"
+        table = self.get_section_table(
+            page_text,
+            table_section_title
+        )
+
         table_string = str(table)
+        str_index_new_row = self.get_new_row_index(table)
 
         updated_table = (
             table_string[:str_index_new_row] +
             new_row + table_string[str_index_new_row:]
         )
 
-        text_before_table_index = parsed_string.find(table_string)
-
-        parsed_text.string = (
-            parsed_string[0:text_before_table_index] + updated_table
+        text_before_table_index = page_text.find(table_string)
+        wtp_page_text = wtp.parse(page_text)
+        wtp_page_text.string = (
+            page_text[0:text_before_table_index] + updated_table
         )
-        return parsed_text
+        return str(wtp_page_text)
 
     def get_table_column_numbers(self, table: wtp.Table,
                                  row_number: int = 0) -> int:
@@ -395,35 +390,190 @@ class WikiService:
         table_column_numbers = len(table_row) - 1
         return table_column_numbers
 
-    def update_table_page_from_dict(self, template_text,
-                                    page_initial_section,
-                                    page_data,
-                                    table_section,
-                                    table_parent):
+    def generate_page_text_from_dict(self, template_text: str,
+                                     page_initial_section: str,
+                                     page_data: dict,
+                                     table_section: str):
+        """
+        Returns the number of columns in a table
+
+        Keyword arguments:
+        template_text --
+        page_initial_section --
+        page_data --
+        table_section --
+
+        Returns:
+        table_column_numbers -- The number of columns in the
+                                table
+        """
         parsed_text = wtp.parse(template_text)
-        parsed_string = str(parsed_text)
         parsed_sections = parsed_text.sections
         updated_text = f"{page_initial_section}\n"
 
         for section in parsed_sections:
-            if (section.title is not None and
-               section.title.strip() in list(page_data.keys())):
-                section_title_string = (
-                    re.search(
-                        f"(=)*({section.title})(=)*",
-                        parsed_string
-                    )
+            if self.is_section_being_updated(section, page_data):
+                # Get the starting and ending position of a section's title
+                start_index, end_index = self.get_section_title_str_index(
+                    section, template_text
                 )
-                start_index = section_title_string.span()[0]
-                end_index = section_title_string.span()[1]
-                if section.title.strip() != table_section:
-                    updated_text += (
-                        parsed_string[start_index:end_index] +
-                        page_data[section.title.strip()]
-                    )
+                page_section_data = page_data[section.title]
+
+                if self.contains_child_section(page_section_data):
+                    for (children_section_number,
+                         child_section) in enumerate(page_section_data):
+                        child_section_title = self.add_child_section_markers(
+                            section,
+                            child_section
+                        )
+
+                        # If the section has more than one child section
+                        # this child's section data must be placed after
+                        # the predecessor child section
+                        if children_section_number > 0:
+                            end_index = self.fix_child_section_string_position(
+                                page_data,
+                                section,
+                                children_section_number
+                            )
+
+                        # Update page text
+                        if child_section != table_section:
+                            updated_text += (
+                                template_text[start_index:end_index] +
+                                child_section_title +
+                                page_section_data[child_section]
+                            )
+                        else:
+                            updated_text = self.add_table_row(
+                                updated_text,
+                                page_section_data[child_section],
+                                table_section,
+                                section.string
+                            )
                 else:
-                    updated_text += f"{table_parent}\n{section.string}"
+                    # Update page text
+                    if section.title != table_section:
+                        updated_text += (
+                            template_text[start_index:end_index] +
+                            page_section_data
+                        )
+                    else:
+                        updated_text = self.add_table_row(
+                            updated_text,
+                            page_section_data,
+                            table_section,
+                            section.string
+                        )
         return updated_text
+
+    def is_section_being_updated(self, section: wtp.Section,
+                                 page_data: dict) -> bool:
+        """
+        Check if the section is being updated or if it is
+        just a section title
+
+        Keyword arguments:
+        section -- The section being checked
+        page_data -- Dict containing the data for a page
+
+        Returns:
+        bool -- Boolean indicating if the section is being updated
+        """
+        if (section.title is not None and
+           section.title in list(page_data.keys())):
+            return True
+        else:
+            return False
+
+    def contains_child_section(self, page_section_data):
+        """
+        Check if the section contains child section
+
+        Keyword arguments:
+        page_section_data -- The page section data
+
+        Returns:
+        bool -- Boolean indicating if the section contains child section
+        """
+        if isinstance(page_section_data, dict):
+            return True
+        else:
+            return False
+
+    def get_section_title_str_index(self, section: wtp.Section,
+                                    template_text: str) -> tuple:
+        """
+        Get the starting and ending position of
+        a section's title string
+
+        Keyword arguments:
+        section --
+        template_text --
+
+        Returns:
+        start_end_index,end_index --
+        """
+        section_title_string = (
+            re.search(
+                f"(=)*({section.title})(=)*",
+                template_text
+            )
+        )
+        start_index = section_title_string.span()[0]
+        end_index = section_title_string.span()[1]
+        return start_index, end_index
+
+    def add_child_section_markers(self,
+                                  parent_section: wtp.Section,
+                                  child_section: str) -> str:
+        """
+        Parse text from child section by adding section
+        markers according to parent section level
+
+        Keyword arguments:
+        parent_section -- The parent section
+        child_section -- The text of the child section
+
+        Returns:
+        child_section_title -- The parsed text of the child section
+        """
+        child_section_markers = (
+            "=" * (parent_section.level + 1)
+        )
+        child_section_title = (
+            f"\n{child_section_markers} "
+            f"{child_section} "
+            f"{child_section_markers}"
+        )
+        return child_section_title
+
+    def fix_child_section_string_position(self, page_data: dict,
+                                          section: wtp.Section,
+                                          child_section_index: int) -> int:
+        """
+        Updates the position of the string in which the child section is
+        going to be added for right after the predecessor
+        child section, instead of adding it right after the
+        parent section title
+
+        Keyword arguments:
+        page_data -- Dict containing the data for a page
+        child_section_index -- Index indicating the position
+                                  in which the child section should
+                                  be added in the text of the page
+
+        Returns:
+        new_end_index -- The parsed text of the children section
+        """
+        children_section_keys = list(
+            page_data[section.title].keys()
+        )
+        predecessor_child_section_title = children_section_keys[
+            child_section_index - 1
+        ]
+        new_end_index = len(predecessor_child_section_title)
+        return new_end_index
 
     def hyperlink_external_link(self, text: str, link: str) -> str:
         """
@@ -456,53 +606,3 @@ class WikiService:
         """
         hyperlinked_page = f"[[{wiki_page} | {text}]]"
         return hyperlinked_page
-
-    def format_section_children_title(self, parent_section_level,
-                                      section_children_title):
-        section_children_level = parent_section_level + 1
-        section_delimiter = "="
-        section_children_text = (
-            " " + (section_delimiter * parent_section_level) + "\n" +
-            (section_delimiter * section_children_level) +
-            f" {section_children_title} " +
-            (section_delimiter * section_children_level)
-        )
-        return section_children_text
-
-    def add_children_section(self, text, section_children_title,
-                             section_parent_title):
-        try:
-            parsed_text = wtp.parse(text)
-            parsed_string = str(parsed_text)
-            section_title_string = (
-                re.search(
-                    f"(=)*({section_parent_title})(=)*",
-                    parsed_string
-                )
-            )
-
-            parent_section_index = (
-                self.get_section_index(text, section_parent_title)
-            )
-            parent_section_level = (
-                parsed_text.sections[parent_section_index].level
-            )
-
-            parent_section_new_index = (
-                section_title_string.span()[1] + parent_section_level + 1
-            )
-            end_text = parsed_string[parent_section_new_index:-1]
-
-            end_index = section_title_string.span()[1]
-
-            section_children_text = self.format_section_children_title(
-                parent_section_level,
-                section_children_title
-            )
-            parsed_string = (
-                parsed_string[0:end_index] + section_children_text
-                + end_text
-            )
-            return parsed_string
-        except WikiServiceError as e:
-            raise WikiServiceError(str(e))

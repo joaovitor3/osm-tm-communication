@@ -123,7 +123,6 @@ class OverviewPageService(WikiPageService):
         document_data -- All required data for a project using
                          Organised Editing Guidelines
         """
-        # OK
         wiki_obj = WikiService()
         token = wiki_obj.get_token()
         wiki_obj.check_token(token)
@@ -134,15 +133,15 @@ class OverviewPageService(WikiPageService):
         activities_list_section = (
             OverviewPage.ACTIVITIES_LIST_SECTION_TITLE.value
         )
-        new_row = overview_page_sections[activities_list_section]
         page_title = OverviewPage.PATH.value
 
         if wiki_obj.is_existing_page(page_title):
             page_text = wiki_obj.get_page_text(page_title)
-            updated_page_text = wiki_obj.edit_page_with_table(
+            updated_page_text = wiki_obj.generate_page_text_from_dict(
                 page_text,
                 activities_list_section,
-                new_row
+                overview_page_sections,
+                activities_list_section
             )
             wiki_obj.edit_page(token, page_title, updated_page_text)
         else:
@@ -150,10 +149,11 @@ class OverviewPageService(WikiPageService):
                 f"={activities_list_section}=\n"
                 f"{OverviewPage.ACTIVITIES_LIST_TABLE.value}"
             )
-            updated_page_text = wiki_obj.edit_page_with_table(
+            updated_page_text = wiki_obj.generate_page_text_from_dict(
                 page_text,
-                activities_list_section,
-                new_row
+                "",
+                overview_page_sections,
+                activities_list_section
             )
 
             wiki_obj.create_page(

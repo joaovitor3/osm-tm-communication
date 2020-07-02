@@ -7,7 +7,7 @@ class OverviewPage(Enum):
         "{|class='wikitable sortable'\n"
         "|-\n"
         '! scope="col" | Organisation\n'
-        '! scope="col" | Organiser\n'
+        '! scope="col" | Platform\n'
         '|-\n'
         '|}\n'
     )
@@ -16,14 +16,14 @@ class OverviewPage(Enum):
 
 class OrgActivityPage(Enum):
     PAGE_TEMPLATE = (
-        "= Activity =\n"
-        "== Organisation ==\n"
-        "=== Link ===\n"
-        "=== Description ===\n"
-        "== Platform ==\n"
-        "=== Link ===\n"
-        "== Projects ==\n"
-        "=== Project list ===\n"
+        "=Activity=\n"
+        "==Organisation==\n"
+        "===Link===\n"
+        "===Description===\n"
+        "==Platform==\n"
+        "===Link===\n"
+        "==Projects==\n"
+        "===Project list===\n"
         "{|class='wikitable sortable'\n"
         "|-\n"
         '! scope="col" | Name\n'
@@ -39,26 +39,29 @@ class OrgActivityPage(Enum):
     ORGANISATION_DESCRIPTION_SECTION = "Description"
     PLATFORM_LINK_SECTION = "Link"
     PROJECT_LIST_SECTION = "Project list"
-    PROJECT_SECTION = "== Projects =="
-    ACTIVITY_SECTION = "= Activity ="
+    PROJECT_SECTION = "Projects"
+    ACTIVITY_SECTION = "=Activity="
 
 
 class ProjectPage(Enum):
     PAGE_TEMPLATE = (
-        "= Project =\n"
-        "=== Short Description ===\n"
-        "=== Timeframe ===\n"
-        "=== Url ===\n"
-        "=== Tools ===\n"
-        "==== Default tools ====\n"
-        "==== External Sources ====\n"
-        "=== Standard changeset comment ===\n"
-        "==== Hashtag ====\n"
-        "=== Instructions ===\n"
-        "=== Metrics ===\n"
-        "=== Quality assurance ===\n"
-        "= Team and User =\n"
-        "=== List of Users ===\n"
+        "=Project=\n"
+        "===Short Description===\n"
+        "===Timeframe===\n"
+        "===Url===\n"
+        # "===Tools===\n"
+        # "====Default tools====\n"
+        "===External Sources===\n"
+        "====Instructions====\n"
+        "====Per Task Instructions====\n"
+        "====Imagery====\n"
+        "====License====\n"
+        # "===Standard changeset comment===\n"
+        "===Hashtag===\n"
+        "===Metrics===\n"
+        "===Quality assurance===\n"
+        "=Team and User=\n"
+        "===List of Users===\n"
         '{|class="wikitable sortable"\n'
         "|-\n"
         '! scope="col" | OSM ID\n'
@@ -66,19 +69,22 @@ class ProjectPage(Enum):
         "|-\n"
         "|}\n"
     )
-    PROJECT_SECTION = "= Project ="
+    PROJECT_SECTION = "Project"
     SHORT_DESCRIPTION_SECTION = "Short Description"
     TIMEFRAME_SECTION = "Timeframe"
     URL_SECTION = "Url"
     TOOLS_SECTION = "Tools"
     DEFAULT_TOOLS_SECTION = "=Default tools"
-    EXTERNAL_SOURCES_SECTION = "=External sources"
+    EXTERNAL_SOURCES_SECTION = "External Sources"
+    PER_TASK_INSTRUCTIONS_SECTION = "Per Task Instructions"
+    IMAGERY_SECTION = "Imagery"
+    LICENSE_SECTION = "License"
     STANDARD_CHANGESET_COMMENT_SECTION = "Standard changeset comment"
     HASHTAG_SECTION = "Hashtag"
     INSTRUCTIONS_SECTION = "Instructions"
     METRICS_SECTION = "Metrics"
     QUALITY_ASSURANCE_SECTION = "Quality assurance"
-    TEAM_AND_USER_SECTION = "= Team and User ="
+    TEAM_AND_USER_SECTION = "Team and User"
     USERS_LIST_SECTION = "List of Users"
 
     STANDARD_TOOLS = "Standard TM Projects"
