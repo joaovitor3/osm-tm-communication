@@ -24,7 +24,7 @@ class ProjectSchema(CamelCaseSchema):
     external_source = ma.Str(required=True)
     url = ma.Url(required=True)
     # tools = ma.Str(required=True)
-    created = ma.DateTime(required=True)
+    created = ma.DateTime("%Y-%m-%dT%H:%M:%S.%fZ", required=True)
     # due_date = ma.Str(required=True)
     external_source = ma.Nested(ExternalSourceSchema)
     users = ma.List(ma.Nested(UserSchema))

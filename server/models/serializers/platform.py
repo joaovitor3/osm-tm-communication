@@ -7,3 +7,7 @@ class PlatformSchema(CamelCaseSchema):
     url = ma.Url(required=True)
     # metrics = ma.Str(required=True)
     # quality_assurance = ma.Str(required=True)
+
+
+class PlatformListSchema(CamelCaseSchema):
+    platform = ma.List(ma.Nested(PlatformSchema), required=False)

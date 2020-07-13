@@ -56,7 +56,8 @@ def add_api_endpoints(app):
     )
     api.add_resource(
         WikiDocumentApi,
-        "/wiki-document/<string:project_name>/",
-        methods=["PUT"],
-        endpoint="update_wiki_coord"
+        "/wiki-document/"
+        "<string:organisation_name>/<string:project_name>/",
+        methods=["PATCH"],
+        endpoint="update_wiki_doc"
     )

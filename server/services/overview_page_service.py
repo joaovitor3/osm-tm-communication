@@ -5,9 +5,18 @@ from server.services.templates import (
     OverviewPage
 )
 from server.services.wiki_page_service import WikiPageService
+from flask import current_app
+import wikitextparser as wtp
+from server.models.serializers.organisation import OrganisationListSchema
+from server.models.serializers.platform import PlatformListSchema
 
 
 class OverviewPageService(WikiPageService):
+    def __init__(self):
+        self.activities_list_section = (
+            OverviewPage.ACTIVITIES_LIST_SECTION_TITLE.value
+        )
+
     def filter_page_data(self, document_data: dict) -> dict:
         """
         Filter required data for the overview page from
@@ -139,14 +148,14 @@ class OverviewPageService(WikiPageService):
             page_text = wiki_obj.get_page_text(page_title)
             updated_page_text = wiki_obj.generate_page_text_from_dict(
                 page_text,
-                activities_list_section,
+                "",
                 overview_page_sections,
                 activities_list_section
             )
             wiki_obj.edit_page(token, page_title, updated_page_text)
         else:
             page_text = (
-                f"={activities_list_section}=\n"
+                f"=={activities_list_section}==\n"
                 f"{OverviewPage.ACTIVITIES_LIST_TABLE.value}"
             )
             updated_page_text = wiki_obj.generate_page_text_from_dict(
@@ -159,3 +168,134 @@ class OverviewPageService(WikiPageService):
             wiki_obj.create_page(
                 token, page_title, updated_page_text
             )
+
+    def is_table_fields_updated(self, update_fields: dict):
+        table_fields = {
+            "platform": ["name", "url"],
+            "organisation": ["name", "url"]
+        }
+        for table_field in table_fields.keys():
+            if (table_field in update_fields.keys() and
+                any((True for table_column in table_fields[table_field] 
+                         if table_column in list(update_fields[table_field].keys())))):
+               return True
+        return False
+
+    def edit_page(self, document_data: dict, update_fields: dict, old_data: dict):
+        """
+        Edits a wiki page
+
+        Keyword arguments:
+        document_data -- All required data for a project using
+                         Organised Editing Guidelines
+        """
+        wiki_obj = WikiService()
+        token = wiki_obj.get_token()
+        wiki_obj.check_token(token)
+
+        overview_page_sections = self.document_to_page_sections(
+            document_data
+        )
+        activities_list_section = (
+            OverviewPage.ACTIVITIES_LIST_SECTION_TITLE.value
+        )
+        page_title = OverviewPage.PATH.value
+
+        overview_page_sections = (
+            self.generate_page_sections_dict(document_data)
+        )
+        page_text = wiki_obj.get_page_text(page_title)
+        
+        if self.is_table_fields_updated(update_fields):
+            organisation_name = old_data["organisation"]["name"].strip()
+            organisation_page_path = (
+                f"{OverviewPage.PATH.value}/"
+                f"{organisation_name}"
+            )
+            organisation_name = wiki_obj.hyperlink_wiki_page(
+                organisation_page_path,
+                organisation_name
+            )
+            updated_text = wiki_obj.generate_page_text_from_dict(
+                page_text,
+                "",
+                overview_page_sections,
+                self.activities_list_section,
+                is_edit=True,
+                edit_row_column_data=organisation_name
+            )
+        else:
+            updated_text = wiki_obj.generate_page_text_from_dict(
+                page_text,
+                "",
+                overview_page_sections,
+                self.activities_list_section
+            )
+        edited_page = wiki_obj.edit_page(
+            token,
+            page_title,
+            updated_text
+        )
+
+
+    def parse_page_to_serializer(self, page_dictionary: dict):
+        """
+        """
+        wiki_obj = WikiService()
+        token = wiki_obj.get_token()
+        wiki_obj.check_token(token)
+
+        overview_page_text = page_dictionary[self.activities_list_section]
+        overview_page_table = wtp.parse(overview_page_text).get_tables()[0]
+        overview_page_data = overview_page_table.data(span=False)
+
+        page_dictionary["organisation"] = []
+        page_dictionary["platform"] = []
+
+        for table_row_number, table_row_data in enumerate(overview_page_data[1:], start=1):
+            organisation_column = 0
+            platform_column = 1
+
+            hyperlinked_organisation_url = overview_page_table.cells(
+                row=table_row_number,
+                column=organisation_column
+            ).value
+
+            hyperlinked_platform_url = overview_page_table.cells(
+                row=table_row_number,
+                column=platform_column
+            ).value.strip()
+
+            organisation_name = (
+                hyperlinked_organisation_url.replace("[", "").replace("]", "")
+                                            .replace("\n", "").split(" | ")[1]
+            )
+
+            page_dictionary["organisation"].append(
+                {
+                    "name": organisation_name
+                }
+            )
+
+            platform_url, platform_name = (
+                hyperlinked_platform_url.replace("[", "").replace("]", "").replace("\n", "").split(" ", 1)
+            )
+            page_dictionary["platform"].append(
+                {
+                    "name": platform_name,
+                    "url": platform_url
+                }
+            )
+        del page_dictionary[self.activities_list_section]
+
+        # validates platform and organisation
+        organisation_list_schema = OrganisationListSchema(partial=True)
+        organisation = (
+            organisation_list_schema.load({"organisation":page_dictionary["organisation"]})
+        )
+
+        platform_list_schema = PlatformListSchema()
+        platform = (
+            platform_list_schema.load({"platform": page_dictionary["platform"]})
+        )
+        return page_dictionary

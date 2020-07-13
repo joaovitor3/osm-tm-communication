@@ -9,6 +9,7 @@ from server.constants import (
     BOT_NAME,
     BOT_PASSWORD
 )
+import time
 
 
 class WikiServiceError(Exception):
@@ -225,6 +226,62 @@ class WikiService:
         )
         r.raise_for_status()
 
+    def search_text_pages(self):#, text):
+        start = time.time()
+        text = "MYO Tasking Manager"
+        params = {
+            "action": "query",
+            "list": "search",
+            "srwhat": "text",
+            "srsearch": text,
+            "srprop": "sectiontitle",
+            "format": "json",
+        }
+        r = self.session.get(url=self.endpoint, params=params)
+        data = r.json()
+        end = time.time()
+        current_app.logger.debug(f"TIME: {end - start}")
+        return data
+    
+    def get_sections(self, text: str) -> list:
+        """
+        Returns a list with all sections in a string
+        formatted in wikitext
+
+        Keyword arguments:
+        text -- The text which the sections are
+                 being searched
+
+        Returns:
+        sections -- list with all sections
+        """
+        wtp_text = wtp.parse(text)
+        sections = wtp_text.sections
+        return sections
+    
+    def edit_table_row(self, table:wtp.Table, new_row: str,
+                       row_number: int) -> str:
+        """
+        """
+        row = table.cells(row=row_number)
+        update_row = re.findall(
+            r"\n\|( .+)",
+            new_row
+        )
+        for index, (col, new_col) in enumerate(zip(row, update_row)):
+            col.value = new_col
+        return table.string
+
+    def get_table_row_by_column_data(self, table, column_data):
+        table_data = table.data(span=False)
+        # ignore header
+        for row_number, row_data in enumerate(table_data[1:], start=1):
+            if column_data.strip() in row_data:
+                return row_number
+        return False
+
+
+
     def format_date_text(self, str_date: str) -> str:
         """
         Format a date into the format "%dd month_name %YYYY"
@@ -262,9 +319,8 @@ class WikiService:
         Returns:
         index -- The index of the section
         """
-        parsed = wtp.parse(text)
-        parsed_sections = parsed.sections
-        for index, section in enumerate(parsed_sections):
+        sections = self.get_sections(text)
+        for index, section in enumerate(sections):
             if (section.title is not None and
                section.title == section_title):
                 return index
@@ -285,14 +341,13 @@ class WikiService:
         Returns:
         index -- The index of the section
         """
-        parsed_text = wtp.parse(text)
         section = self.get_section_index(
             text,
             section_title
         )
-        parsed_sections = parsed_text.sections
+        sections = self.get_sections(text)
         table = (
-            parsed_sections[section]
+            sections[section]
             .get_tables()[0]
         )
         return table
@@ -342,10 +397,13 @@ class WikiService:
 
     def add_table_row(self, page_text: str, new_row: str,
                       table_section_title: str,
-                      table_template: str) -> str:
+                      table_template: str,
+                      is_edit: bool = False,
+                      edit_row_column_data: str = "") -> str:
         """
         Add a row to table
         """
+
         page_text += f"{table_template}"
         table = self.get_section_table(
             page_text,
@@ -355,10 +413,15 @@ class WikiService:
         table_string = str(table)
         str_index_new_row = self.get_new_row_index(table)
 
-        updated_table = (
-            table_string[:str_index_new_row] +
-            new_row + table_string[str_index_new_row:]
-        )
+
+        if is_edit:
+            row_number = self.get_table_row_by_column_data(table, edit_row_column_data)
+            updated_table =self.edit_table_row(table, new_row, row_number)
+        else:
+            updated_table = (
+                table_string[:str_index_new_row] +
+                new_row + table_string[str_index_new_row:]
+            )
 
         text_before_table_index = page_text.find(table_string)
         wtp_page_text = wtp.parse(page_text)
@@ -393,7 +456,9 @@ class WikiService:
     def generate_page_text_from_dict(self, template_text: str,
                                      page_initial_section: str,
                                      page_data: dict,
-                                     table_section: str):
+                                     table_section: str,
+                                     is_edit: bool = False,
+                                     edit_row_column_data: str = ""):
         """
         Returns the number of columns in a table
 
@@ -408,10 +473,10 @@ class WikiService:
                                 table
         """
         parsed_text = wtp.parse(template_text)
-        parsed_sections = parsed_text.sections
+        sections = self.get_sections(template_text)
         updated_text = f"{page_initial_section}\n"
 
-        for section in parsed_sections:
+        for section in sections:
             if self.is_section_being_updated(section, page_data):
                 # Get the starting and ending position of a section's title
                 start_index, end_index = self.get_section_title_str_index(
@@ -445,12 +510,22 @@ class WikiService:
                                 page_section_data[child_section]
                             )
                         else:
-                            updated_text = self.add_table_row(
-                                updated_text,
-                                page_section_data[child_section],
-                                table_section,
-                                section.string
-                            )
+                            if is_edit:
+                                updated_text = self.add_table_row(
+                                    updated_text,
+                                    page_section_data[child_section],
+                                    table_section,
+                                    section.string,
+                                    True,
+                                    edit_row_column_data
+                                )
+                            else:
+                                updated_text = self.add_table_row(
+                                    updated_text,
+                                    page_section_data[child_section],
+                                    table_section,
+                                    section.string
+                                )
                 else:
                     # Update page text
                     if section.title != table_section:
@@ -459,12 +534,22 @@ class WikiService:
                             page_section_data
                         )
                     else:
-                        updated_text = self.add_table_row(
-                            updated_text,
-                            page_section_data,
-                            table_section,
-                            section.string
-                        )
+                        if is_edit:
+                            updated_text = self.add_table_row(
+                                updated_text,
+                                page_section_data,
+                                table_section,
+                                section.string,
+                                True,
+                                edit_row_column_data
+                            )
+                        else:
+                            updated_text = self.add_table_row(
+                                updated_text,
+                                page_section_data,
+                                table_section,
+                                section.string
+                            )
         return updated_text
 
     def is_section_being_updated(self, section: wtp.Section,
@@ -542,8 +627,8 @@ class WikiService:
             "=" * (parent_section.level + 1)
         )
         child_section_title = (
-            f"\n{child_section_markers} "
-            f"{child_section} "
+            f"\n{child_section_markers}"
+            f"{child_section}"
             f"{child_section_markers}"
         )
         return child_section_title
