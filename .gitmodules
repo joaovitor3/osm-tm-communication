@@ -1,0 +1,3 @@
+[submodule "/home/joao/Documents/gsoc/osm-tm-communication/report_files_repository"]
+	path = /home/joao/Documents/gsoc/osm-tm-communication/report_files_repository
+	url = git@github.com:joaovitor3/test-github-files.git

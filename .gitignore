@@ -133,3 +133,6 @@ dmypy.json
 
 # MediaWiki configuration
 LocalSettings.php
+
+# Local git repository folder
+report_files_repository/

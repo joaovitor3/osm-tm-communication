@@ -19,6 +19,13 @@ class EnvironmentConfig:
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", None)
 
+    REPORT_FILE_REPOSITORY_PATH = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "report_files_repository/")
+    )
+    GIT_SSH_SCRIPT = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "my_ssh_executable.sh")
+    )
+
     SQLALCHEMY_DATABASE_URI = (
         f"postgresql://{POSTGRES_USER}"
         + f":{POSTGRES_PASSWORD}"

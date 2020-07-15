@@ -11,6 +11,7 @@ from server.models.serializers.document import (
     is_known_document_content_type,
     turn_fields_optional
 )
+from flask import current_app
 
 
 class DocumentApi(Resource):
@@ -141,6 +142,7 @@ class DocumentApi(Resource):
             current_app.logger.error(f"Error validating document: {str(e)}")
             return {"Error": f"{str(e)}"}, 409
         except ValidationError as e:
+            current_app.logger.error(f"Error validating request: {str(e)}")
             return {"Error": f"{str(e)}"}, 400
         except Exception as e:
             current_app.logger.debug(f"{str(e)}")
@@ -223,7 +225,7 @@ class DocumentApi(Resource):
             github_file = github.update_file(
                 document
             )
-            return {"Success": f"File updated {github_file}"}, 200
+            return {"Success":"top"}, 200 #f"File updated {github_file}"}, 200
         except ValidationError as e:
             return {"Error": f"{str(e)}"}, 404
         except GithubServiceError as e:

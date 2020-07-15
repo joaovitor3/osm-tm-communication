@@ -10,6 +10,16 @@ class DocumentService:
         return encoded_yaml
 
     @staticmethod
+    def json_to_yaml(json):
+        yaml_str = yaml.dump(json, allow_unicode=True)
+        return yaml_str
+
+    @staticmethod
+    def yaml_to_dict(yaml_str):
+        yaml_dict = yaml.load(yaml_str, Loader=yaml.FullLoader)
+        return yaml_dict
+
+    @staticmethod
     def bytes_encoded_yaml_to_dict(encoded_yaml: str) -> dict:
         """
         Parse the string representation of a bytes
